@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI接单平台 · 项目资料中心</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+html,body{background:#0F172A !important;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;color:#E2E8F0;line-height:1.6;min-height:100vh;overflow-x:hidden;}
+
+/* Background */
+.bg-pattern{position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;overflow:hidden;}
+.bg-pattern::before{content:'';position:absolute;top:-20%;right:-10%;width:600px;height:600px;background:radial-gradient(circle,rgba(59,130,196,0.12) 0%,transparent 70%);border-radius:50%;}
+.bg-pattern::after{content:'';position:absolute;bottom:-20%;left:-10%;width:500px;height:500px;background:radial-gradient(circle,rgba(59,130,196,0.08) 0%,transparent 70%);border-radius:50%;}
+
+/* Layout */
+.container{max-width:1000px;margin:0 auto;padding:60px 24px;position:relative;z-index:1;}
+
+/* Header */
+.header{text-align:center;margin-bottom:56px;}
+.logo-row{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:20px;}
+.logo-box{width:52px;height:52px;background:linear-gradient(135deg,#3B82C4,#1B2A4A);border-radius:14px;display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:900;box-shadow:0 4px 20px rgba(59,130,196,0.3);}
+.logo-text{font-size:28px;font-weight:900;color:white;letter-spacing:-0.5px;}
+.header-desc{font-size:16px;color:#94A3B8;max-width:500px;margin:0 auto;line-height:1.7;}
+
+/* Cards grid */
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
+
+/* Card */
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px;transition:all 0.35s cubic-bezier(0.4,0,0.2,1);cursor:pointer;text-decoration:none;color:inherit;display:flex;flex-direction:column;position:relative;overflow:hidden;backdrop-filter:blur(10px);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0;transition:opacity 0.3s;}
+.card:hover{background:rgba(255,255,255,0.08);border-color:rgba(59,130,196,0.4);transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.3);}
+.card:hover::before{opacity:1;}
+.card-icon{font-size:36px;margin-bottom:14px;}
+.card-title{font-size:18px;font-weight:700;color:white;margin-bottom:6px;}
+.card-desc{font-size:13px;color:#94A3B8;line-height:1.6;flex:1;}
+.card-tag{display:inline-block;margin-top:14px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;}
+.tag-html{background:rgba(59,130,196,0.15);color:#60A5FA;}
+.tag-pptx{background:rgba(249,115,22,0.15);color:#FB923C;}
+.tag-docx{background:rgba(16,185,129,0.15);color:#34D399;}
+.tag-proto{background:rgba(139,92,246,0.15);color:#A78BFA;}
+
+/* Featured */
+.card.featured{grid-column:span 2;flex-direction:row;align-items:center;gap:24px;background:linear-gradient(135deg,rgba(59,130,196,0.1),rgba(27,42,74,0.3));border-color:rgba(59,130,196,0.2);}
+.card.featured .card-icon{font-size:48px;margin-bottom:0;flex-shrink:0;}
+.card.featured .card-content{flex:1;}
+.card.featured .card-title{font-size:22px;}
+
+/* Footer */
+.footer{text-align:center;margin-top:56px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.06);}
+.footer-text{font-size:13px;color:#475569;}
+.footer-text a{color:#60A5FA;text-decoration:none;}
+
+/* Responsive */
+@media(max-width:640px){
+  .cards{grid-template-columns:1fr;}
+  .card.featured{grid-column:span 1;flex-direction:column;}
+  .card.featured .card-icon{margin-bottom:14px;}
+  .header{margin-bottom:40px;}
+  .logo-text{font-size:22px;}
+}
+</style>
+</head>
+<body>
+<div class="bg-pattern"></div>
+<div class="container">
+  <div class="header">
+    <div class="logo-row">
+      <div class="logo-box">AI</div>
+      <div class="logo-text">AI接单平台</div>
+    </div>
+    <div class="header-desc">连接中小企业需求与AI赋能的自由职业者<br>以下为项目完整资料，点击卡片查看</div>
+  </div>
+
+  <div class="cards">
+    <!-- Featured: Prototype -->
+    <a class="card featured" href="./prototype.html" style="--accent:#A78BFA;">
+      <div class="card-icon">🖥️</div>
+      <div class="card-content">
+        <div class="card-title">产品原型（可交互）</div>
+        <div class="card-desc">20页高保真可交互原型，覆盖完整用户流程：首页、发布需求、接单工作台、Agent定制、支付收银台、消息中心、平台保障（担保/仲裁/信用）、帮助中心等。</div>
+        <span class="card-tag tag-proto">交互式 HTML · 20页</span>
+      </div>
+    </a>
+
+    <!-- Business Analysis -->
+    <a class="card" href="./analysis.html" style="--accent:#60A5FA;">
+      <div class="card-icon">📊</div>
+      <div class="card-title">商业分析报告</div>
+      <div class="card-desc">市场分析、竞品对比、商业模式、产品功能、MVP规划，数据可视化呈现。</div>
+      <span class="card-tag tag-html">数据可视化 HTML</span>
+    </a>
+
+    <!-- Tech Architecture -->
+    <a class="card" href="./architecture.html" style="--accent:#34D399;">
+      <div class="card-icon">🏗️</div>
+      <div class="card-title">技术架构设计</div>
+      <div class="card-desc">微服务架构、数据库ER设计、API端点、部署方案，可交互架构图。</div>
+      <span class="card-tag tag-html">交互式 HTML</span>
+    </a>
+
+    <!-- Operations Plan -->
+    <a class="card" href="./operations.html" style="--accent:#F472B6;">
+      <div class="card-icon">📈</div>
+      <div class="card-title">运营方案</div>
+      <div class="card-desc">冷启动策略、用户增长、社群运营、品类运营、质量体系、KPI指标体系。</div>
+      <span class="card-tag tag-html">数据可视化 HTML</span>
+    </a>
+
+    <!-- PPT -->
+    <a class="card" href="./AI接单平台_商业计划书.pptx" style="--accent:#FB923C;">
+      <div class="card-icon">📑</div>
+      <div class="card-title">商业计划书 PPT</div>
+      <div class="card-desc">18页投资人演示文稿，涵盖市场、产品、商业模式、里程碑。</div>
+      <span class="card-tag tag-pptx">PPTX · 18页</span>
+    </a>
+
+    <!-- DOCX -->
+    <a class="card" href="./AI接单平台_商业计划书.docx" style="--accent:#34D399;">
+      <div class="card-icon">📝</div>
+      <div class="card-title">商业计划书 Word</div>
+      <div class="card-desc">详细版商业计划书，14个章节完整展开，含数据表格和分析。</div>
+      <span class="card-tag tag-docx">DOCX · 详细版</span>
+    </a>
+  </div>
+
+  <div class="footer">
+    <div class="footer-text">AI接单平台 · 项目资料中心 · 2026</div>
+  </div>
+</div>
+</body>
+</html>

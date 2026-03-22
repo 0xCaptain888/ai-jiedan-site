@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<style>html,body{background:#0F172A !important;}</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI接单平台 - 运营方案</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: { DEFAULT:'#0F172A', light:'#1B2A4A', dark:'#080E1A' },
+        accent: { DEFAULT:'#3B82C4', light:'#60A5FA', dark:'#2563EB' },
+        glass: { DEFAULT:'rgba(255,255,255,0.06)', light:'rgba(255,255,255,0.10)', border:'rgba(255,255,255,0.08)' }
+      },
+      fontFamily: {
+        sans: ['Noto Sans SC', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace']
+      }
+    }
+  }
+}
+</script>
+<style>
+html, body {
+  background: #0F172A !important;
+  color: #E2E8F0;
+  font-family: 'Noto Sans SC', sans-serif;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+::selection { background: rgba(59,130,196,0.4); }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0F172A; }
+::-webkit-scrollbar-thumb { background: #3B82C4; border-radius: 3px; }
+
+/* Progress bar */
+#progress-bar {
+  position: fixed; top: 0; left: 0; height: 3px; z-index: 9999;
+  background: linear-gradient(90deg, #3B82C4, #60A5FA, #818CF8);
+  width: 0%; transition: width 0.1s linear;
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.glass-card:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(59,130,196,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 40px rgba(59,130,196,0.08);
+}
+
+/* Floating nav */
+#side-nav {
+  position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+  z-index: 100; display: flex; flex-direction: column; gap: 12px;
+}
+#side-nav a {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); display: block;
+  transition: all 0.3s ease; position: relative;
+}
+#side-nav a.active, #side-nav a:hover {
+  background: #3B82C4; box-shadow: 0 0 12px rgba(59,130,196,0.5);
+  transform: scale(1.4);
+}
+#side-nav a .nav-label {
+  position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  white-space: nowrap; font-size: 12px; color: rgba(255,255,255,0.6);
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  background: rgba(15,23,42,0.9); padding: 4px 10px; border-radius: 6px;
+}
+#side-nav a:hover .nav-label { opacity: 1; }
+
+/* Noise overlay */
+.noise-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 9998; opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Mesh gradient blobs */
+.mesh-blob {
+  position: absolute; border-radius: 50%; filter: blur(120px);
+  pointer-events: none; opacity: 0.12;
+}
+
+/* Section styling */
+.section-title {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 900; line-height: 1.2;
+  background: linear-gradient(135deg, #E2E8F0 0%, #94A3B8 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.section-subtitle {
+  font-size: 0.875rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #3B82C4; font-family: 'JetBrains Mono', monospace; font-weight: 500;
+}
+
+/* Counter animation */
+.counter-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(2rem, 4vw, 3rem); font-weight: 700;
+  background: linear-gradient(135deg, #60A5FA, #818CF8);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Timeline */
+.timeline-line {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+  background: linear-gradient(180deg, transparent, #3B82C4, transparent);
+}
+.timeline-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #3B82C4; border: 3px solid #0F172A;
+  box-shadow: 0 0 12px rgba(59,130,196,0.5);
+}
+
+/* Glow text */
+.glow-text {
+  text-shadow: 0 0 40px rgba(59,130,196,0.3);
+}
+
+/* Category cards */
+.cat-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; padding: 28px;
+  transition: all 0.4s; position: relative; overflow: hidden;
+}
+.cat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #3B82C4, #818CF8);
+  opacity: 0; transition: opacity 0.4s;
+}
+.cat-card:hover::before { opacity: 1; }
+.cat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  border-color: rgba(59,130,196,0.2);
+}
+
+/* Badge */
+.badge {
+  display: inline-block; padding: 3px 10px; border-radius: 20px;
+  font-size: 0.75rem; font-weight: 500;
+  background: rgba(59,130,196,0.15); color: #60A5FA;
+  border: 1px solid rgba(59,130,196,0.2);
+}
+
+/* Flowchart step */
+.flow-step {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 20px; text-align: center;
+  transition: all 0.3s;
+}
+.flow-step:hover {
+  background: rgba(59,130,196,0.1);
+  border-color: rgba(59,130,196,0.3);
+}
+.flow-arrow {
+  color: #3B82C4; font-size: 1.5rem; display: flex; align-items: center;
+  justify-content: center;
+}
+
+/* Hero particles */
+.hero-particle {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: rgba(59,130,196,0.4);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  #side-nav { display: none; }
+  .section-title { font-size: 1.8rem; }
+  .timeline-line { left: 20px; }
+}
+
+/* Animated border gradient */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(59,130,196,0.4), transparent, rgba(129,140,248,0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Metric gauge */
+.metric-ring {
+  width: 120px; height: 120px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Noise Overlay -->
+<div class="noise-overlay"></div>
+
+<!-- Progress Bar -->
+<div id="progress-bar"></div>
+
+<!-- Side Navigation -->
+<nav id="side-nav">
+  <a href="#hero"><span class="nav-label">首页</span></a>
+  <a href="#overview"><span class="nav-label">运营总览</span></a>
+  <a href="#coldstart"><span class="nav-label">冷启动策略</span></a>
+  <a href="#growth"><span class="nav-label">用户增长</span></a>
+  <a href="#community"><span class="nav-label">社群运营</span></a>
+  <a href="#category"><span class="nav-label">品类运营</span></a>
+  <a href="#quality"><span class="nav-label">质量体系</span></a>
+  <a href="#metrics"><span class="nav-label">关键指标</span></a>
+  <a href="#budget"><span class="nav-label">运营预算</span></a>
+</nav>
+
+<!-- ====================== HERO SECTION ====================== -->
+<section id="hero" class="relative min-h-screen flex items-center justify-center overflow-hidden">
+  <!-- Background blobs -->
+  <div class="mesh-blob" style="width:600px;height:600px;background:#3B82C4;top:-200px;right:-200px;"></div>
+  <div class="mesh-blob" style="width:500px;height:500px;background:#818CF8;bottom:-200px;left:-150px;opacity:0.08;"></div>
+  <div class="mesh-blob" style="width:300px;height:300px;background:#3B82C4;top:40%;left:30%;opacity:0.06;"></div>
+
+  <!-- Particles container -->
+  <div id="hero-particles" class="absolute inset-0 pointer-events-none"></div>
+
+  <div class="relative z-10 text-center px-6 max-w-5xl mx-auto">
+    <div class="hero-anim">
+      <p class="section-subtitle mb-6 tracking-widest">AI FREELANCING PLATFORM / OPERATIONS PLAN 2026</p>
+    </div>
+    <div class="hero-anim">
+      <h1 class="text-5xl md:text-7xl lg:text-8xl font-black leading-tight mb-6 glow-text"
+          style="background:linear-gradient(135deg,#fff 0%,#94A3B8 50%,#60A5FA 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        AI接单平台<br>运营方案
+      </h1>
+    </div>
+    <div class="hero-anim">
+      <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-4 leading-relaxed">
+        AI原生服务交易平台 — 连接中小企业与AI技能自由职业者<br>
+        以定制AI Agent开发为核心，打造供需双驱动的服务生态
+      </p>
+    </div>
+    <div class="hero-anim">
+      <div class="flex flex-wrap justify-center gap-4 mt-10">
+        <div class="glass-card px-6 py-3">
+          <span class="text-slate-500 text-sm">目标市场</span>
+          <span class="text-white font-bold ml-2">中国大陆SMB</span>
+        </div>
+        <div class="glass-card px-6 py-3">
+          <span class="text-slate-500 text-sm">核心服务</span>
+          <span class="text-white font-bold ml-2">AI Agent定制</span>
+        </div>
+        <div class="glass-card px-6 py-3">
+          <span class="text-slate-500 text-sm">运营周期</span>
+          <span class="text-white font-bold ml-2">18个月规划</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-anim mt-12">
+      <a href="#overview" class="inline-flex items-center gap-2 text-accent font-mono text-sm tracking-wider hover:text-accent-light transition-colors">
+        <span>向下探索</span>
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="animate-bounce"><path d="M8 2v12M2 8l6 6 6-6"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 1. 运营总览 ====================== -->
+<section id="overview" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:400px;height:400px;background:#3B82C4;top:10%;right:5%;opacity:0.06;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">01 / OPERATIONS OVERVIEW</p>
+    </div>
+    <div class="anim-up mb-6">
+      <h2 class="section-title">运营总览</h2>
+    </div>
+    <div class="anim-up mb-16">
+      <p class="text-slate-400 max-w-3xl text-lg leading-relaxed">
+        以「供需双驱动，AI赋能运营」为核心理念，构建国内首个AI原生服务交易平台。
+        通过精细化运营实现供给侧与需求侧的高效匹配，用AI技术赋能平台运营全链路。
+      </p>
+    </div>
+
+    <!-- Philosophy Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+      <div class="glass-card p-8 anim-up">
+        <div class="text-3xl mb-4">&#9881;</div>
+        <h3 class="text-white font-bold text-lg mb-2">供需双驱动</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">同步培育供给侧（AI接单者）与需求侧（SMB客户），打造正向飞轮效应，实现平台生态自增长。</p>
+      </div>
+      <div class="glass-card p-8 anim-up">
+        <div class="text-3xl mb-4">&#9889;</div>
+        <h3 class="text-white font-bold text-lg mb-2">AI赋能运营</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">利用AI技术实现智能匹配、自动质检、需求诊断、仲裁辅助，大幅降低运营人力成本。</p>
+      </div>
+      <div class="glass-card p-8 anim-up">
+        <div class="text-3xl mb-4">&#128640;</div>
+        <h3 class="text-white font-bold text-lg mb-2">数据驱动决策</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">建立完善的指标体系与数据看板，用实时数据指导运营策略调整，确保每一步决策有据可依。</p>
+      </div>
+    </div>
+
+    <!-- KPI Counters -->
+    <div class="anim-up mb-8">
+      <h3 class="text-white font-bold text-xl mb-2">Y1 核心运营目标</h3>
+      <p class="text-slate-500 text-sm font-mono">YEAR ONE KEY TARGETS</p>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div class="glass-card p-8 text-center anim-up">
+        <div class="counter-value" data-target="50000" data-suffix="" data-format="wan">0</div>
+        <p class="text-slate-400 text-sm mt-2">注册用户</p>
+        <p class="font-mono text-xs text-slate-600 mt-1">5万+</p>
+      </div>
+      <div class="glass-card p-8 text-center anim-up">
+        <div class="counter-value" data-target="2000" data-suffix="人">0</div>
+        <p class="text-slate-400 text-sm mt-2">活跃接单者</p>
+        <p class="font-mono text-xs text-slate-600 mt-1">精选认证</p>
+      </div>
+      <div class="glass-card p-8 text-center anim-up">
+        <div class="counter-value" data-target="1000" data-suffix="万" data-prefix="¥">0</div>
+        <p class="text-slate-400 text-sm mt-2">月GMV</p>
+        <p class="font-mono text-xs text-slate-600 mt-1">年终目标</p>
+      </div>
+      <div class="glass-card p-8 text-center anim-up">
+        <div class="counter-value" data-target="45" data-suffix="%+">0</div>
+        <p class="text-slate-400 text-sm mt-2">复购率</p>
+        <p class="font-mono text-xs text-slate-600 mt-1">行业领先</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 2. 冷启动策略 ====================== -->
+<section id="coldstart" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:500px;height:500px;background:#818CF8;top:20%;left:-10%;opacity:0.06;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">02 / COLD START STRATEGY</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">冷启动策略</h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-20">
+      <!-- Supply Side -->
+      <div class="anim-up">
+        <div class="glass-card p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">S</div>
+            <div>
+              <h3 class="text-white font-bold text-lg">供给侧启动</h3>
+              <p class="text-slate-500 text-xs font-mono">SUPPLY SIDE</p>
+            </div>
+          </div>
+
+          <div class="mb-6">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="badge">Phase 1</span>
+              <span class="text-slate-400 text-sm">M1-M2: 种子期</span>
+            </div>
+            <p class="text-white font-medium mb-2">定向邀请100名种子接单者</p>
+            <div class="space-y-2 text-sm text-slate-400">
+              <p><span class="text-accent mr-2">渠道</span> 即刻、知识星球、GitHub、AI公众号</p>
+              <p><span class="text-accent mr-2">激励</span> 首3个月0佣金 / 平台认证标识 / 专属AI工具包</p>
+              <p><span class="text-accent mr-2">筛选</span> AI工具使用经验 / 作品集 / 响应速度</p>
+            </div>
+          </div>
+
+          <div class="border-t border-white/5 pt-6">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="badge">Phase 2</span>
+              <span class="text-slate-400 text-sm">M2-M3: 扩张期</span>
+            </div>
+            <p class="text-white font-medium mb-2">扩展至500名，引入师徒机制</p>
+            <div class="space-y-2 text-sm text-slate-400">
+              <p><span class="text-accent mr-2">策略</span> 种子接单者推荐徒弟，师傅获推荐奖励</p>
+              <p><span class="text-accent mr-2">目标</span> 覆盖全部5大品类，各品类至少50人</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Demand Side -->
+      <div class="anim-up">
+        <div class="glass-card p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold">D</div>
+            <div>
+              <h3 class="text-white font-bold text-lg">需求侧启动</h3>
+              <p class="text-slate-500 text-xs font-mono">DEMAND SIDE</p>
+            </div>
+          </div>
+
+          <div class="space-y-5">
+            <div>
+              <p class="text-white font-medium mb-1">联合渠道合作</p>
+              <p class="text-slate-400 text-sm">企业服务协会 / 孵化器 / 产业园，批量触达SMB客户</p>
+            </div>
+            <div>
+              <p class="text-white font-medium mb-1">首单补贴机制</p>
+              <p class="text-slate-400 text-sm">首单<span class="text-accent font-bold">50%折扣</span>补贴（平台承担），降低尝试门槛</p>
+            </div>
+            <div>
+              <p class="text-white font-medium mb-1">种子客户画像</p>
+              <p class="text-slate-400 text-sm">电商卖家 / 教育机构 / 本地服务商 — 高频AI服务需求</p>
+            </div>
+            <div>
+              <p class="text-white font-medium mb-1">标杆案例打造</p>
+              <p class="text-slate-400 text-sm">精选<span class="text-accent font-bold">10个</span>深度服务案例，形成口碑传播素材</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Supply-Demand Timeline Chart -->
+    <div class="anim-up">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-2">供需增长对照</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">SUPPLY VS DEMAND GROWTH TIMELINE</p>
+        <div id="chart-coldstart" style="width:100%;height:400px;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 3. 用户增长策略 ====================== -->
+<section id="growth" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:400px;height:400px;background:#3B82C4;bottom:10%;right:5%;opacity:0.06;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">03 / USER GROWTH STRATEGY</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">用户增长策略</h2>
+    </div>
+
+    <!-- Content Matrix -->
+    <div class="anim-up mb-8">
+      <h3 class="text-white font-bold text-xl mb-2">内容营销矩阵</h3>
+      <p class="text-slate-500 text-sm font-mono">CONTENT MARKETING MATRIX</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+      <div class="glass-card p-6 anim-up">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-400 text-sm font-bold">R</div>
+          <span class="text-white font-bold">小红书</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-2">
+          <li>AI接单实战笔记</li>
+          <li>收入晒单分享</li>
+          <li>工具教程指南</li>
+        </ul>
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <span class="font-mono text-xs text-accent">日更2篇</span>
+        </div>
+      </div>
+      <div class="glass-card p-6 anim-up">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-bold">B</div>
+          <span class="text-white font-bold">B站</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-2">
+          <li>AI接单教程视频</li>
+          <li>月入过万系列</li>
+          <li>工具横评测试</li>
+        </ul>
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <span class="font-mono text-xs text-accent">周更2期</span>
+        </div>
+      </div>
+      <div class="glass-card p-6 anim-up">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 text-sm font-bold">W</div>
+          <span class="text-white font-bold">公众号</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-2">
+          <li>行业洞察报告</li>
+          <li>平台动态更新</li>
+          <li>接单者故事集</li>
+        </ul>
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <span class="font-mono text-xs text-accent">周更3篇</span>
+        </div>
+      </div>
+      <div class="glass-card p-6 anim-up">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 text-sm font-bold">D</div>
+          <span class="text-white font-bold">抖音</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-2">
+          <li>15秒AI接单场景</li>
+          <li>客户见证短片</li>
+          <li>AI工具实操展示</li>
+        </ul>
+        <div class="mt-4 pt-4 border-t border-white/5">
+          <span class="font-mono text-xs text-accent">日更1条</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEO/SEM & Referral -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-20">
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-white font-bold text-lg mb-4">SEO / SEM 投放</h4>
+        <div class="space-y-3 text-sm">
+          <div class="flex items-center gap-3">
+            <span class="text-accent font-mono">关键词</span>
+            <span class="text-slate-400">AI接单 / AI外包 / Agent定制 / AI兼职</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-accent font-mono">平台</span>
+            <span class="text-slate-400">百度 / 搜狗竞价投放</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-accent font-mono">策略</span>
+            <span class="text-slate-400">长尾词内容矩阵 + 品牌词竞价</span>
+          </div>
+        </div>
+      </div>
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-white font-bold text-lg mb-4">裂变增长机制</h4>
+        <div class="space-y-3 text-sm">
+          <div class="flex items-center gap-3">
+            <span class="text-accent font-mono">接单者</span>
+            <span class="text-slate-400">邀请完成首单奖励 <span class="text-white font-bold">¥50</span></span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-accent font-mono">需求方</span>
+            <span class="text-slate-400">邀请客户首单奖励 <span class="text-white font-bold">¥100</span></span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-accent font-mono">社群</span>
+            <span class="text-slate-400">接单者社群带动需求方口碑传播</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Funnel Chart -->
+    <div class="anim-up mb-20">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-2">用户转化漏斗</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">CONVERSION FUNNEL: 曝光 → 注册 → 首单 → 复购 → 推荐</p>
+        <div id="chart-funnel" style="width:100%;height:400px;"></div>
+      </div>
+    </div>
+
+    <!-- Growth Projections -->
+    <div class="anim-up">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-2">M1-M18 用户增长预测</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">MONTHLY USER GROWTH TRAJECTORY</p>
+        <div id="chart-growth" style="width:100%;height:420px;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 4. 社群运营 ====================== -->
+<section id="community" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:450px;height:450px;background:#818CF8;top:30%;right:-5%;opacity:0.05;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">04 / COMMUNITY OPERATIONS</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">社群运营</h2>
+    </div>
+
+    <!-- Freelancer Community System -->
+    <div class="anim-up mb-8">
+      <h3 class="text-white font-bold text-xl mb-2">接单者社群体系</h3>
+      <p class="text-slate-500 text-sm font-mono">FREELANCER COMMUNITY HIERARCHY</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+      <div class="glass-card p-8 anim-up gradient-border">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-3 h-3 rounded-full bg-green-400"></div>
+          <span class="text-white font-bold">新手群</span>
+          <span class="badge ml-auto">入门级</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-3">
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>入门培训课程</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>AI工具使用教程</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>接单流程指引</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>常见问题互助</li>
+        </ul>
+      </div>
+      <div class="glass-card p-8 anim-up gradient-border">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-3 h-3 rounded-full bg-blue-400"></div>
+          <span class="text-white font-bold">精英群</span>
+          <span class="badge ml-auto" style="background:rgba(129,140,248,0.15);color:#818CF8;border-color:rgba(129,140,248,0.2);">进阶级</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-3">
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>优质单源优先推荐</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>经验分享交流</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>高客单价需求对接</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>专属技术支持</li>
+        </ul>
+      </div>
+      <div class="glass-card p-8 anim-up gradient-border">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-3 h-3 rounded-full bg-purple-400"></div>
+          <span class="text-white font-bold">导师群</span>
+          <span class="badge ml-auto" style="background:rgba(168,85,247,0.15);color:#A855F7;border-color:rgba(168,85,247,0.2);">大师级</span>
+        </div>
+        <ul class="text-slate-400 text-sm space-y-3">
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>平台运营共建参与</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>品类负责人制度</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>培训课程讲师</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#8227;</span>战略合作伙伴</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Community Activities -->
+    <div class="anim-up mb-8">
+      <h3 class="text-white font-bold text-xl mb-2">社群活动矩阵</h3>
+      <p class="text-slate-500 text-sm font-mono">COMMUNITY ACTIVITY MATRIX</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+      <div class="glass-card p-6 anim-up text-center">
+        <div class="font-mono text-accent text-sm mb-2">WEEKLY</div>
+        <h4 class="text-white font-bold text-lg mb-4">周度活动</h4>
+        <div class="space-y-3 text-sm text-slate-400">
+          <p>AI工具分享会</p>
+          <p>接单技巧交流</p>
+          <p>新需求类型解读</p>
+        </div>
+      </div>
+      <div class="glass-card p-6 anim-up text-center">
+        <div class="font-mono text-accent text-sm mb-2">MONTHLY</div>
+        <h4 class="text-white font-bold text-lg mb-4">月度活动</h4>
+        <div class="space-y-3 text-sm text-slate-400">
+          <p>接单之星评选</p>
+          <p>收入排行榜公布</p>
+          <p>优秀案例展示</p>
+        </div>
+      </div>
+      <div class="glass-card p-6 anim-up text-center">
+        <div class="font-mono text-accent text-sm mb-2">QUARTERLY</div>
+        <h4 class="text-white font-bold text-lg mb-4">季度活动</h4>
+        <div class="space-y-3 text-sm text-slate-400">
+          <p>线下Meetup</p>
+          <p>行业沙龙</p>
+          <p>年度颁奖盛典</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Community -->
+    <div class="anim-up">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-6">客户社群运营</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="text-center">
+            <div class="text-3xl mb-3">&#128101;</div>
+            <p class="text-white font-medium mb-1">企业主交流群</p>
+            <p class="text-slate-500 text-sm">行业交流、需求对接、资源互换</p>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl mb-3">&#127909;</div>
+            <p class="text-white font-medium mb-1">需求诊断直播</p>
+            <p class="text-slate-500 text-sm">定期直播解析AI应用场景，降低客户认知门槛</p>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl mb-3">&#128218;</div>
+            <p class="text-white font-medium mb-1">案例分享</p>
+            <p class="text-slate-500 text-sm">定期输出深度案例，增强客户信任感</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 5. 品类运营 ====================== -->
+<section id="category" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:500px;height:500px;background:#3B82C4;top:15%;left:-8%;opacity:0.05;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">05 / CATEGORY OPERATIONS</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">品类运营</h2>
+    </div>
+
+    <!-- GMV Pie Chart -->
+    <div class="anim-up mb-20">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-2">GMV品类分布</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">GMV DISTRIBUTION BY CATEGORY</p>
+        <div id="chart-category-pie" style="width:100%;height:420px;"></div>
+      </div>
+    </div>
+
+    <!-- Category Cards -->
+    <div class="space-y-6">
+      <!-- Agent定制 -->
+      <div class="cat-card anim-up">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <span class="badge" style="background:rgba(59,130,196,0.2);font-size:0.85rem;padding:5px 14px;">核心品类</span>
+          <h3 class="text-white font-bold text-xl">Agent定制</h3>
+          <span class="ml-auto font-mono text-accent text-sm">占GMV 40%</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">标准化流程</p>
+            <div class="text-sm text-slate-300 space-y-1">
+              <p>1. 需求沟通</p><p>2. 方案设计</p><p>3. 开发搭建</p><p>4. 测试验证</p><p>5. 部署上线</p>
+            </div>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">预置模板</p>
+            <div class="text-sm text-slate-300 space-y-1">
+              <p>客服Agent</p><p>营销Agent</p><p>数据Agent</p><p>内容Agent</p>
+            </div>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">定价区间</p>
+            <p class="text-white font-bold text-lg">¥3,000 - ¥50,000</p>
+            <p class="text-slate-500 text-xs mt-1">按复杂度与定制程度</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">质检标准</p>
+            <div class="text-sm text-slate-300 space-y-1">
+              <p>功能完整性</p><p>响应准确率</p><p>异常处理能力</p><p>沙箱环境测试</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设计类 -->
+      <div class="cat-card anim-up">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <h3 class="text-white font-bold text-xl">设计类</h3>
+          <span class="ml-auto font-mono text-accent text-sm">占GMV 20%</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">服务范围</p>
+            <p class="text-sm text-slate-300">PPT / 简历 / 海报 / Logo / UI设计</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">AI工具标配</p>
+            <p class="text-sm text-slate-300">Midjourney / Stable Diffusion / Canva AI</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">定价区间</p>
+            <p class="text-white font-bold text-lg">¥50 - ¥5,000</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 文字内容类 -->
+      <div class="cat-card anim-up">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <h3 class="text-white font-bold text-xl">文字内容类</h3>
+          <span class="ml-auto font-mono text-accent text-sm">占GMV 20%</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">服务范围</p>
+            <p class="text-sm text-slate-300">文案 / 翻译 / SEO内容 / 脚本创作</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">AI工具</p>
+            <p class="text-sm text-slate-300">ChatGPT / Claude / 文心一言</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">定价区间</p>
+            <p class="text-white font-bold text-lg">¥100 - ¥3,000</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分析报告类 -->
+      <div class="cat-card anim-up">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <h3 class="text-white font-bold text-xl">分析报告类</h3>
+          <span class="ml-auto font-mono text-accent text-sm">占GMV 10%</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">服务范围</p>
+            <p class="text-sm text-slate-300">数据分析 / 市场调研 / 竞品分析</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">AI工具</p>
+            <p class="text-sm text-slate-300">Python + AI / 数据可视化工具</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">定价区间</p>
+            <p class="text-white font-bold text-lg">¥500 - ¥10,000</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 技术开发类 -->
+      <div class="cat-card anim-up">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <h3 class="text-white font-bold text-xl">技术开发类</h3>
+          <span class="ml-auto font-mono text-accent text-sm">占GMV 10%</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">服务范围</p>
+            <p class="text-sm text-slate-300">网站 / 小程序 / 自动化脚本 / API开发</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">AI工具</p>
+            <p class="text-sm text-slate-300">Cursor / GitHub Copilot / v0.dev</p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-xs font-mono mb-2">定价区间</p>
+            <p class="text-white font-bold text-lg">¥1,000 - ¥30,000</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 6. 服务质量体系 ====================== -->
+<section id="quality" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:400px;height:400px;background:#818CF8;bottom:20%;left:5%;opacity:0.05;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">06 / QUALITY ASSURANCE SYSTEM</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">服务质量体系</h2>
+    </div>
+
+    <!-- Quality Flowchart -->
+    <div class="anim-up mb-20">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-6">全链路质量管控流程</h3>
+        <div class="flex flex-wrap items-center justify-center gap-3 md:gap-4">
+          <div class="flow-step flex-1 min-w-[120px]">
+            <div class="text-accent text-2xl mb-2">&#128100;</div>
+            <p class="text-white text-sm font-bold">接单者准入</p>
+            <p class="text-slate-500 text-xs mt-1">技能认证</p>
+          </div>
+          <div class="flow-arrow hidden md:flex">&#10132;</div>
+          <div class="flow-step flex-1 min-w-[120px]">
+            <div class="text-accent text-2xl mb-2">&#128196;</div>
+            <p class="text-white text-sm font-bold">需求匹配</p>
+            <p class="text-slate-500 text-xs mt-1">AI智能推荐</p>
+          </div>
+          <div class="flow-arrow hidden md:flex">&#10132;</div>
+          <div class="flow-step flex-1 min-w-[120px]">
+            <div class="text-accent text-2xl mb-2">&#9881;</div>
+            <p class="text-white text-sm font-bold">交付过程</p>
+            <p class="text-slate-500 text-xs mt-1">进度追踪</p>
+          </div>
+          <div class="flow-arrow hidden md:flex">&#10132;</div>
+          <div class="flow-step flex-1 min-w-[120px]">
+            <div class="text-accent text-2xl mb-2">&#128270;</div>
+            <p class="text-white text-sm font-bold">AI质检</p>
+            <p class="text-slate-500 text-xs mt-1">自动审核</p>
+          </div>
+          <div class="flow-arrow hidden md:flex">&#10132;</div>
+          <div class="flow-step flex-1 min-w-[120px]">
+            <div class="text-accent text-2xl mb-2">&#11088;</div>
+            <p class="text-white text-sm font-bold">评价反馈</p>
+            <p class="text-slate-500 text-xs mt-1">五维评分</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+      <!-- 准入机制 -->
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-white font-bold text-lg mb-5">接单者准入机制</h4>
+        <div class="space-y-4">
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold mt-0.5">1</div>
+            <div>
+              <p class="text-white text-sm font-medium">技能认证考核</p>
+              <p class="text-slate-500 text-xs">在线测试+实操评估，确保基础能力达标</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold mt-0.5">2</div>
+            <div>
+              <p class="text-white text-sm font-medium">作品集审核</p>
+              <p class="text-slate-500 text-xs">至少3件代表作品，展示专业能力水平</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold mt-0.5">3</div>
+            <div>
+              <p class="text-white text-sm font-medium">试单评估</p>
+              <p class="text-slate-500 text-xs">完成平台模拟订单，评估实际交付能力</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI质检 -->
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-white font-bold text-lg mb-5">AI质检机制</h4>
+        <div class="space-y-4">
+          <div class="flex items-start gap-3">
+            <span class="badge mt-0.5">文本类</span>
+            <p class="text-slate-400 text-sm">AI语法/逻辑/原创性检测</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="badge mt-0.5">设计类</span>
+            <p class="text-slate-400 text-sm">分辨率/配色/排版AI评分</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="badge mt-0.5">代码类</span>
+            <p class="text-slate-400 text-sm">自动化测试 + 代码审查</p>
+          </div>
+          <div class="flex items-start gap-3">
+            <span class="badge mt-0.5" style="background:rgba(129,140,248,0.15);color:#818CF8;border-color:rgba(129,140,248,0.2);">Agent</span>
+            <p class="text-slate-400 text-sm">沙箱环境功能测试 + 对话质量评估</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- 评价体系 -->
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-white font-bold text-lg mb-5">五维评价体系</h4>
+        <div id="chart-radar" style="width:100%;height:300px;"></div>
+        <div class="mt-4 space-y-2">
+          <p class="text-slate-400 text-sm">等级晋升: <span class="text-white">新手 &#8594; 认证 &#8594; 精英 &#8594; 大师</span></p>
+          <p class="text-slate-400 text-sm">差评预警: <span class="text-white">评分&lt;3.5自动触发运营介入</span></p>
+        </div>
+      </div>
+
+      <!-- 纠纷处理 -->
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-white font-bold text-lg mb-5">纠纷处理机制</h4>
+        <div class="space-y-5">
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400 text-lg flex-shrink-0">&#9989;</div>
+            <div>
+              <p class="text-white text-sm font-medium">7天无理由退款</p>
+              <p class="text-slate-500 text-xs">未交付订单可无条件退款，保障客户权益</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg flex-shrink-0">&#129302;</div>
+            <div>
+              <p class="text-white text-sm font-medium">AI辅助仲裁</p>
+              <p class="text-slate-500 text-xs">AI分析订单交付物与需求匹配度，提供仲裁建议</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 text-lg flex-shrink-0">&#128222;</div>
+            <div>
+              <p class="text-white text-sm font-medium">人工客服兜底</p>
+              <p class="text-slate-500 text-xs">复杂纠纷升级至人工处理，确保公平解决</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 7. 关键运营指标 ====================== -->
+<section id="metrics" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:500px;height:500px;background:#3B82C4;top:10%;right:-10%;opacity:0.05;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">07 / KEY METRICS &amp; KPIS</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">关键运营指标</h2>
+    </div>
+
+    <!-- North Star -->
+    <div class="anim-up mb-12 text-center">
+      <div class="glass-card p-8 inline-block gradient-border">
+        <p class="text-slate-500 text-xs font-mono mb-2">NORTH STAR METRIC</p>
+        <p class="text-3xl md:text-4xl font-black text-white glow-text">月GMV</p>
+        <p class="text-slate-400 text-sm mt-2">一切运营动作围绕月GMV增长展开</p>
+      </div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+      <div class="glass-card p-8 anim-up">
+        <h4 class="text-accent font-mono text-xs mb-4 tracking-wider">供给侧指标</h4>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">活跃接单者数</span>
+            <span class="text-white font-mono font-bold">2,000人</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full bg-accent/60 rounded-full" style="width:0%" data-bar="100"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">人均月收入</span>
+            <span class="text-white font-mono font-bold">¥8,000</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full bg-accent/60 rounded-full" style="width:0%" data-bar="80"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">48h接单率</span>
+            <span class="text-white font-mono font-bold">85%</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full bg-accent/60 rounded-full" style="width:0%" data-bar="85"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">按时交付率</span>
+            <span class="text-white font-mono font-bold">92%</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full bg-accent/60 rounded-full" style="width:0%" data-bar="92"></div></div>
+        </div>
+      </div>
+
+      <div class="glass-card p-8 anim-up">
+        <h4 class="font-mono text-xs mb-4 tracking-wider" style="color:#818CF8;">需求侧指标</h4>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">月活需求方</span>
+            <span class="text-white font-mono font-bold">5,000</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(129,140,248,0.6);" data-bar="100"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">需求成交转化率</span>
+            <span class="text-white font-mono font-bold">35%</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(129,140,248,0.6);" data-bar="70"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">客单价</span>
+            <span class="text-white font-mono font-bold">¥2,500</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(129,140,248,0.6);" data-bar="65"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">复购率</span>
+            <span class="text-white font-mono font-bold">45%+</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(129,140,248,0.6);" data-bar="90"></div></div>
+        </div>
+      </div>
+
+      <div class="glass-card p-8 anim-up">
+        <h4 class="font-mono text-xs mb-4 tracking-wider" style="color:#A855F7;">平台指标</h4>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">Take Rate</span>
+            <span class="text-white font-mono font-bold">12-18%</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(168,85,247,0.6);" data-bar="75"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">毛利率</span>
+            <span class="text-white font-mono font-bold">65-75%</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(168,85,247,0.6);" data-bar="70"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">用户获取成本</span>
+            <span class="text-white font-mono font-bold">¥120</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(168,85,247,0.6);" data-bar="60"></div></div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">LTV</span>
+            <span class="text-white font-mono font-bold">¥1,800</span>
+          </div>
+          <div class="w-full h-1 bg-white/5 rounded-full"><div class="h-full rounded-full" style="width:0%;background:rgba(168,85,247,0.6);" data-bar="85"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Metrics Gauge Chart -->
+    <div class="anim-up mb-20">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-2">核心指标仪表盘</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">KEY METRICS GAUGE DASHBOARD</p>
+        <div id="chart-gauges" style="width:100%;height:320px;"></div>
+      </div>
+    </div>
+
+    <!-- 18-Month Milestone Timeline -->
+    <div class="anim-up">
+      <div class="glass-card p-8">
+        <h3 class="text-white font-bold text-lg mb-2">18个月里程碑</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">18-MONTH MILESTONE TIMELINE</p>
+        <div id="chart-milestone" style="width:100%;height:400px;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== 8. 运营预算 ====================== -->
+<section id="budget" class="relative py-32 px-6">
+  <div class="mesh-blob" style="width:400px;height:400px;background:#3B82C4;top:20%;left:10%;opacity:0.05;"></div>
+  <div class="max-w-6xl mx-auto">
+    <div class="anim-up mb-4">
+      <p class="section-subtitle">08 / OPERATIONS BUDGET</p>
+    </div>
+    <div class="anim-up mb-16">
+      <h2 class="section-title">运营预算</h2>
+    </div>
+
+    <!-- Budget Distribution -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-20">
+      <div class="glass-card p-8 anim-up">
+        <h3 class="text-white font-bold text-lg mb-2">月度预算分配</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">MONTHLY BUDGET ALLOCATION</p>
+        <div id="chart-budget-pie" style="width:100%;height:360px;"></div>
+      </div>
+      <div class="glass-card p-8 anim-up">
+        <h3 class="text-white font-bold text-lg mb-2">阶段预算规划</h3>
+        <p class="text-slate-500 text-sm font-mono mb-6">PHASED BUDGET PLAN</p>
+        <div id="chart-budget-bar" style="width:100%;height:360px;"></div>
+      </div>
+    </div>
+
+    <!-- Budget Phase Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass-card p-8 anim-up text-center">
+        <span class="badge mb-4 inline-block">P1 阶段</span>
+        <p class="text-slate-400 text-sm mb-2">0 - 3个月</p>
+        <p class="text-3xl font-black font-mono text-white mb-2">¥15<span class="text-lg text-slate-400">万/月</span></p>
+        <p class="text-slate-500 text-xs">冷启动与MVP验证</p>
+        <div class="mt-4 pt-4 border-t border-white/5 text-left text-sm text-slate-400 space-y-1">
+          <p>总投入: ¥45万</p>
+          <p>重点: 种子用户获取、产品打磨</p>
+        </div>
+      </div>
+      <div class="glass-card p-8 anim-up text-center">
+        <span class="badge mb-4 inline-block" style="background:rgba(129,140,248,0.15);color:#818CF8;border-color:rgba(129,140,248,0.2);">P2 阶段</span>
+        <p class="text-slate-400 text-sm mb-2">3 - 9个月</p>
+        <p class="text-3xl font-black font-mono text-white mb-2">¥30<span class="text-lg text-slate-400">万/月</span></p>
+        <p class="text-slate-500 text-xs">规模化增长</p>
+        <div class="mt-4 pt-4 border-t border-white/5 text-left text-sm text-slate-400 space-y-1">
+          <p>总投入: ¥180万</p>
+          <p>重点: 用户增长、品类扩展</p>
+        </div>
+      </div>
+      <div class="glass-card p-8 anim-up text-center">
+        <span class="badge mb-4 inline-block" style="background:rgba(168,85,247,0.15);color:#A855F7;border-color:rgba(168,85,247,0.2);">P3 阶段</span>
+        <p class="text-slate-400 text-sm mb-2">9 - 18个月</p>
+        <p class="text-3xl font-black font-mono text-white mb-2">¥50<span class="text-lg text-slate-400">万/月</span></p>
+        <p class="text-slate-500 text-xs">盈利优化与生态建设</p>
+        <div class="mt-4 pt-4 border-t border-white/5 text-left text-sm text-slate-400 space-y-1">
+          <p>总投入: ¥450万</p>
+          <p>重点: 盈利模型验证、壁垒构建</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== FOOTER ====================== -->
+<footer class="relative py-20 px-6 border-t border-white/5">
+  <div class="max-w-6xl mx-auto text-center">
+    <p class="text-slate-600 text-sm font-mono">AI接单平台 / 运营方案 2026</p>
+    <p class="text-slate-700 text-xs mt-2">CONFIDENTIAL - FOR INTERNAL & INVESTOR USE ONLY</p>
+  </div>
+</footer>
+
+<script>
+// ============================================================
+// GSAP + ScrollTrigger Setup
+// ============================================================
+gsap.registerPlugin(ScrollTrigger);
+
+// Progress bar
+window.addEventListener('scroll', () => {
+  const st = document.documentElement.scrollTop || document.body.scrollTop;
+  const sh = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+  document.getElementById('progress-bar').style.width = (st / sh * 100) + '%';
+});
+
+// Side nav active state
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('#side-nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 300) current = s.id;
+  });
+  navLinks.forEach((a, i) => {
+    const ids = ['hero','overview','coldstart','growth','community','category','quality','metrics','budget'];
+    a.classList.toggle('active', ids[i] === current);
+  });
+});
+
+// Generic anim-up entrance
+gsap.utils.toArray('.anim-up').forEach(el => {
+  gsap.from(el, {
+    y: 60, opacity: 0, duration: 0.9, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
+  });
+});
+
+// Hero entrance
+gsap.from('.hero-anim', {
+  y: 80, opacity: 0, duration: 1.2, ease: 'power3.out', stagger: 0.2, delay: 0.3
+});
+
+// Hero particles
+(function() {
+  const container = document.getElementById('hero-particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'hero-particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = Math.random() * 100 + '%';
+    p.style.opacity = Math.random() * 0.5 + 0.1;
+    const size = Math.random() * 3 + 2;
+    p.style.width = size + 'px'; p.style.height = size + 'px';
+    container.appendChild(p);
+    gsap.to(p, {
+      y: -100 - Math.random() * 200, x: (Math.random() - 0.5) * 100,
+      opacity: 0, duration: 4 + Math.random() * 6, repeat: -1,
+      delay: Math.random() * 5, ease: 'none'
+    });
+  }
+})();
+
+// Animated counters
+document.querySelectorAll('.counter-value').forEach(el => {
+  const target = parseInt(el.dataset.target);
+  const suffix = el.dataset.suffix || '';
+  const prefix = el.dataset.prefix || '';
+  const format = el.dataset.format;
+  ScrollTrigger.create({
+    trigger: el, start: 'top 85%',
+    onEnter: () => {
+      gsap.to({ val: 0 }, {
+        val: target, duration: 2.5, ease: 'power2.out',
+        onUpdate: function() {
+          let v = Math.round(this.targets()[0].val);
+          if (format === 'wan') {
+            el.textContent = prefix + (v >= 10000 ? (v/10000).toFixed(1) + '万' : v.toLocaleString()) + suffix;
+          } else {
+            el.textContent = prefix + v.toLocaleString() + suffix;
+          }
+        }
+      });
+    }, once: true
+  });
+});
+
+// Animated progress bars
+document.querySelectorAll('[data-bar]').forEach(bar => {
+  const target = parseInt(bar.dataset.bar);
+  ScrollTrigger.create({
+    trigger: bar, start: 'top 90%',
+    onEnter: () => {
+      gsap.to(bar, { width: target + '%', duration: 1.5, ease: 'power2.out' });
+    }, once: true
+  });
+});
+
+// ============================================================
+// ECharts Configuration
+// ============================================================
+const FONT = 'Noto Sans SC, sans-serif';
+const MONO = 'JetBrains Mono, monospace';
+const COLORS = ['#3B82C4','#818CF8','#60A5FA','#A855F7','#34D399','#F59E0B','#F87171'];
+const AXIS_STYLE = { color: 'rgba(255,255,255,0.3)', fontFamily: MONO, fontSize: 11 };
+const SPLIT_LINE = { lineStyle: { color: 'rgba(255,255,255,0.04)' } };
+
+function tooltipStyle() {
+  return {
+    backgroundColor: 'rgba(15,23,42,0.95)',
+    borderColor: 'rgba(59,130,196,0.3)',
+    borderWidth: 1,
+    textStyle: { color: '#E2E8F0', fontFamily: FONT, fontSize: 13 },
+    padding: [12, 16],
+    extraCssText: 'border-radius:12px;backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,0.4);'
+  };
+}
+
+function initChart(id, optionFn) {
+  const dom = document.getElementById(id);
+  if (!dom) return;
+  const chart = echarts.init(dom, null, { renderer: 'svg' });
+  ScrollTrigger.create({
+    trigger: dom, start: 'top 85%',
+    onEnter: () => { chart.setOption(optionFn()); },
+    once: true
+  });
+  window.addEventListener('resize', () => chart.resize());
+  return chart;
+}
+
+// ---- Chart: Cold Start Supply vs Demand ----
+initChart('chart-coldstart', () => ({
+  tooltip: { ...tooltipStyle(), trigger: 'axis' },
+  legend: { data: ['供给侧（接单者）','需求侧（客户）'], textStyle: { color: '#94A3B8', fontFamily: FONT }, top: 0, right: 0 },
+  grid: { left: 50, right: 30, top: 50, bottom: 40 },
+  xAxis: { type: 'category', data: ['M1','M2','M3','M4','M5','M6'], axisLabel: AXIS_STYLE, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } } },
+  yAxis: { type: 'value', axisLabel: AXIS_STYLE, splitLine: SPLIT_LINE },
+  animationDuration: 2000,
+  animationEasing: 'cubicOut',
+  series: [
+    {
+      name: '供给侧（接单者）', type: 'line', smooth: true,
+      data: [30, 80, 150, 250, 380, 500],
+      lineStyle: { width: 3, color: '#3B82C4' },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(59,130,196,0.25)'},{offset:1,color:'rgba(59,130,196,0)'}]) },
+      symbol: 'circle', symbolSize: 8,
+      itemStyle: { color: '#3B82C4', borderColor: '#0F172A', borderWidth: 2 },
+      markPoint: { data: [{ type: 'max', name: '最大值' }], itemStyle: { color: '#3B82C4' }, label: { fontFamily: MONO, fontSize: 11 } }
+    },
+    {
+      name: '需求侧（客户）', type: 'line', smooth: true,
+      data: [10, 40, 100, 200, 350, 500],
+      lineStyle: { width: 3, color: '#818CF8' },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(129,140,248,0.20)'},{offset:1,color:'rgba(129,140,248,0)'}]) },
+      symbol: 'circle', symbolSize: 8,
+      itemStyle: { color: '#818CF8', borderColor: '#0F172A', borderWidth: 2 }
+    }
+  ]
+}));
+
+// ---- Chart: Conversion Funnel ----
+initChart('chart-funnel', () => ({
+  tooltip: { ...tooltipStyle(), trigger: 'item', formatter: '{b}: {c}%' },
+  animationDuration: 2000,
+  animationEasing: 'cubicOut',
+  series: [{
+    type: 'funnel', left: '10%', right: '10%', top: 20, bottom: 20,
+    width: '80%', sort: 'descending', gap: 4,
+    label: { show: true, position: 'inside', fontFamily: FONT, fontSize: 14, color: '#fff',
+      formatter: '{b}\n{c}%' },
+    labelLine: { show: false },
+    itemStyle: { borderColor: '#0F172A', borderWidth: 2, borderRadius: 4 },
+    data: [
+      { value: 100, name: '曝光', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#3B82C4'},{offset:1,color:'#60A5FA'}]) } },
+      { value: 40, name: '注册', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#818CF8'},{offset:1,color:'#A78BFA'}]) } },
+      { value: 18, name: '首单', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#A855F7'},{offset:1,color:'#C084FC'}]) } },
+      { value: 8, name: '复购', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#7C3AED'},{offset:1,color:'#8B5CF6'}]) } },
+      { value: 3, name: '推荐', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,0,[{offset:0,color:'#6D28D9'},{offset:1,color:'#7C3AED'}]) } }
+    ]
+  }]
+}));
+
+// ---- Chart: User Growth M1-M18 ----
+initChart('chart-growth', () => {
+  const months = Array.from({length:18}, (_,i) => 'M'+(i+1));
+  const users = [200,600,1500,3000,5500,8000,11000,14500,18500,22000,26000,30000,34000,38000,42000,45500,48000,50000];
+  const freelancers = [30,80,150,250,380,500,650,800,950,1050,1200,1350,1500,1600,1700,1800,1900,2000];
+  return {
+    tooltip: { ...tooltipStyle(), trigger: 'axis',
+      formatter: function(p) {
+        let s = '<strong style="color:#fff">' + p[0].axisValue + '</strong><br>';
+        p.forEach(i => { s += '<span style="color:' + i.color + '">' + i.marker + ' ' + i.seriesName + ': <strong>' + i.value.toLocaleString() + '</strong></span><br>'; });
+        return s;
+      }
+    },
+    legend: { data: ['注册用户','活跃接单者'], textStyle: { color: '#94A3B8', fontFamily: FONT }, top: 0, right: 0 },
+    grid: { left: 60, right: 30, top: 50, bottom: 40 },
+    xAxis: { type: 'category', data: months, axisLabel: AXIS_STYLE, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } } },
+    yAxis: [
+      { type: 'value', name: '注册用户', nameTextStyle: { color: '#94A3B8', fontFamily: FONT, fontSize: 11 }, axisLabel: { ...AXIS_STYLE, formatter: v => v >= 10000 ? (v/10000)+'万' : v }, splitLine: SPLIT_LINE },
+      { type: 'value', name: '接单者', nameTextStyle: { color: '#94A3B8', fontFamily: FONT, fontSize: 11 }, axisLabel: AXIS_STYLE, splitLine: { show: false } }
+    ],
+    animationDuration: 2500,
+    animationEasing: 'cubicOut',
+    series: [
+      {
+        name: '注册用户', type: 'bar', yAxisIndex: 0, data: users, barWidth: '40%',
+        itemStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(59,130,196,0.8)'},{offset:1,color:'rgba(59,130,196,0.2)'}]), borderRadius: [4,4,0,0] }
+      },
+      {
+        name: '活跃接单者', type: 'line', yAxisIndex: 1, data: freelancers, smooth: true,
+        lineStyle: { width: 3, color: '#818CF8' }, symbol: 'circle', symbolSize: 6,
+        itemStyle: { color: '#818CF8', borderColor: '#0F172A', borderWidth: 2 },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(129,140,248,0.15)'},{offset:1,color:'rgba(129,140,248,0)'}]) }
+      }
+    ]
+  };
+});
+
+// ---- Chart: Category Pie ----
+initChart('chart-category-pie', () => ({
+  tooltip: { ...tooltipStyle(), trigger: 'item', formatter: '{b}: {d}%<br>GMV占比' },
+  animationDuration: 2000,
+  animationEasing: 'cubicOut',
+  series: [{
+    type: 'pie', radius: ['42%', '72%'], center: ['50%', '50%'],
+    padAngle: 3, itemStyle: { borderRadius: 8 },
+    label: { color: '#E2E8F0', fontFamily: FONT, fontSize: 13,
+      formatter: '{b}\n{d}%', lineHeight: 20 },
+    labelLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+    emphasis: {
+      scaleSize: 12,
+      itemStyle: { shadowBlur: 30, shadowColor: 'rgba(59,130,196,0.3)' }
+    },
+    data: [
+      { value: 40, name: 'Agent定制', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#3B82C4'},{offset:1,color:'#60A5FA'}]) } },
+      { value: 20, name: '设计类', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#818CF8'},{offset:1,color:'#A78BFA'}]) } },
+      { value: 20, name: '文字内容类', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#A855F7'},{offset:1,color:'#C084FC'}]) } },
+      { value: 10, name: '分析报告类', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#34D399'},{offset:1,color:'#6EE7B7'}]) } },
+      { value: 10, name: '技术开发类', itemStyle: { color: new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#F59E0B'},{offset:1,color:'#FBBF24'}]) } }
+    ]
+  }]
+}));
+
+// ---- Chart: Radar (Quality 5 Dimensions) ----
+initChart('chart-radar', () => ({
+  animationDuration: 1500,
+  radar: {
+    indicator: [
+      { name: '质量', max: 5 }, { name: '速度', max: 5 }, { name: '沟通', max: 5 },
+      { name: '专业性', max: 5 }, { name: '性价比', max: 5 }
+    ],
+    axisName: { color: '#94A3B8', fontFamily: FONT, fontSize: 12 },
+    splitArea: { areaStyle: { color: ['rgba(255,255,255,0.02)','rgba(255,255,255,0.04)'] } },
+    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+    axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } }
+  },
+  series: [{
+    type: 'radar',
+    data: [
+      {
+        value: [4.5, 4.2, 4.3, 4.6, 4.1], name: '平台目标',
+        areaStyle: { color: 'rgba(59,130,196,0.2)' },
+        lineStyle: { color: '#3B82C4', width: 2 },
+        itemStyle: { color: '#3B82C4' },
+        symbol: 'circle', symbolSize: 6
+      }
+    ]
+  }]
+}));
+
+// ---- Chart: Gauge Dashboard ----
+initChart('chart-gauges', () => ({
+  animationDuration: 2500,
+  animationEasing: 'cubicOut',
+  series: [
+    {
+      type: 'gauge', center: ['16%','55%'], radius: '70%',
+      startAngle: 210, endAngle: -30,
+      min: 0, max: 100,
+      axisLine: { lineStyle: { width: 14, color: [[0.45, 'rgba(59,130,196,0.2)'], [1, 'rgba(59,130,196,0.8)']] } },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      pointer: { width: 4, length: '60%', itemStyle: { color: '#3B82C4' } },
+      title: { offsetCenter: [0, '75%'], color: '#94A3B8', fontFamily: FONT, fontSize: 12 },
+      detail: { offsetCenter: [0, '48%'], color: '#fff', fontFamily: MONO, fontSize: 20, fontWeight: 'bold', formatter: '{value}%' },
+      data: [{ value: 45, name: '复购率' }]
+    },
+    {
+      type: 'gauge', center: ['50%','55%'], radius: '70%',
+      startAngle: 210, endAngle: -30,
+      min: 0, max: 100,
+      axisLine: { lineStyle: { width: 14, color: [[0.85, 'rgba(129,140,248,0.2)'], [1, 'rgba(129,140,248,0.8)']] } },
+      axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
+      pointer: { width: 4, length: '60%', itemStyle: { color: '#818CF8' } },
+      title: { offsetCenter: [0, '75%'], color: '#94A3B8', fontFamily: FONT, fontSize: 12 },
+      detail: { offsetCenter: [0, '48%'], color: '#fff', fontFamily: MONO, fontSize: 20, fontWeight: 'bold', formatter: '{value}%' },
+      data: [{ value: 85, name: '48h接单率' }]
+    },
+    {
+      type: 'gauge', center: ['84%','55%'], radius: '70%',
+      startAngle: 210, endAngle: -30,
+      min: 0, max: 100,
+      axisLine: { lineStyle: { width: 14, color: [[0.92, 'rgba(168,85,247,0.2)'], [1, 'rgba(168,85,247,0.8)']] } },
+      axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
+      pointer: { width: 4, length: '60%', itemStyle: { color: '#A855F7' } },
+      title: { offsetCenter: [0, '75%'], color: '#94A3B8', fontFamily: FONT, fontSize: 12 },
+      detail: { offsetCenter: [0, '48%'], color: '#fff', fontFamily: MONO, fontSize: 20, fontWeight: 'bold', formatter: '{value}%' },
+      data: [{ value: 92, name: '按时交付率' }]
+    }
+  ]
+}));
+
+// ---- Chart: 18-Month Milestone ----
+initChart('chart-milestone', () => ({
+  tooltip: { ...tooltipStyle(), trigger: 'axis',
+    formatter: function(p) {
+      let s = '<strong style="color:#fff">' + p[0].axisValue + '</strong><br>';
+      p.forEach(i => { s += i.marker + ' ' + i.seriesName + ': <strong>' + (i.seriesName === '月GMV(万元)' ? '¥' + i.value + '万' : i.value + '人') + '</strong><br>'; });
+      return s;
+    }
+  },
+  legend: { data: ['月GMV(万元)','接单者数'], textStyle: { color: '#94A3B8', fontFamily: FONT }, top: 0, right: 0 },
+  grid: { left: 60, right: 60, top: 50, bottom: 40 },
+  xAxis: { type: 'category', data: ['M3','M6','M9','M12','M18'], axisLabel: AXIS_STYLE, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } } },
+  yAxis: [
+    { type: 'value', name: 'GMV(万元)', nameTextStyle: { color: '#94A3B8', fontFamily: FONT, fontSize: 11 }, axisLabel: AXIS_STYLE, splitLine: SPLIT_LINE },
+    { type: 'value', name: '接单者(人)', nameTextStyle: { color: '#94A3B8', fontFamily: FONT, fontSize: 11 }, axisLabel: AXIS_STYLE, splitLine: { show: false } }
+  ],
+  animationDuration: 2500,
+  animationEasing: 'cubicOut',
+  series: [
+    {
+      name: '月GMV(万元)', type: 'bar', yAxisIndex: 0,
+      data: [10, 100, 300, 500, 1000], barWidth: '35%',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(59,130,196,0.9)'},{offset:1,color:'rgba(59,130,196,0.2)'}]),
+        borderRadius: [6,6,0,0]
+      },
+      label: { show: true, position: 'top', color: '#60A5FA', fontFamily: MONO, fontSize: 12, formatter: '¥{c}万' }
+    },
+    {
+      name: '接单者数', type: 'line', yAxisIndex: 1, smooth: true,
+      data: [100, 500, 1000, 1500, 2000],
+      lineStyle: { width: 3, color: '#A855F7', type: 'dashed' },
+      symbol: 'diamond', symbolSize: 10,
+      itemStyle: { color: '#A855F7', borderColor: '#0F172A', borderWidth: 2 },
+      label: { show: true, position: 'bottom', color: '#C084FC', fontFamily: MONO, fontSize: 11, formatter: '{c}人' }
+    }
+  ]
+}));
+
+// ---- Chart: Budget Pie ----
+initChart('chart-budget-pie', () => ({
+  tooltip: { ...tooltipStyle(), trigger: 'item', formatter: '{b}: {d}%' },
+  animationDuration: 2000,
+  series: [{
+    type: 'pie', radius: ['35%', '65%'], center: ['50%', '52%'],
+    padAngle: 2, itemStyle: { borderRadius: 6 },
+    label: { color: '#E2E8F0', fontFamily: FONT, fontSize: 12, formatter: '{b}\n{d}%', lineHeight: 18 },
+    labelLine: { lineStyle: { color: 'rgba(255,255,255,0.15)' } },
+    emphasis: { scaleSize: 8, itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,0,0,0.3)' } },
+    data: [
+      { value: 30, name: '内容营销', itemStyle: { color: '#3B82C4' } },
+      { value: 25, name: '用户补贴', itemStyle: { color: '#818CF8' } },
+      { value: 15, name: '社群运营', itemStyle: { color: '#A855F7' } },
+      { value: 15, name: 'SEM/SEO', itemStyle: { color: '#34D399' } },
+      { value: 10, name: '活动运营', itemStyle: { color: '#F59E0B' } },
+      { value: 5, name: '其他', itemStyle: { color: '#64748B' } }
+    ]
+  }]
+}));
+
+// ---- Chart: Budget Bar ----
+initChart('chart-budget-bar', () => ({
+  tooltip: { ...tooltipStyle(), trigger: 'axis',
+    formatter: function(p) { return '<strong>' + p[0].axisValue + '</strong><br>' + p[0].marker + ' 月预算: <strong>¥' + p[0].value + '万</strong>'; }
+  },
+  grid: { left: 60, right: 30, top: 30, bottom: 40 },
+  xAxis: { type: 'category', data: ['P1 (0-3月)','P2 (3-9月)','P3 (9-18月)'], axisLabel: { ...AXIS_STYLE, fontFamily: FONT }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } } },
+  yAxis: { type: 'value', name: '万元/月', nameTextStyle: { color: '#94A3B8', fontFamily: FONT, fontSize: 11 }, axisLabel: AXIS_STYLE, splitLine: SPLIT_LINE },
+  animationDuration: 2000,
+  animationEasing: 'cubicOut',
+  series: [{
+    type: 'bar', data: [15, 30, 50], barWidth: '45%',
+    itemStyle: {
+      borderRadius: [8,8,0,0],
+      color: function(p) {
+        const colors = [
+          new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#3B82C4'},{offset:1,color:'rgba(59,130,196,0.3)'}]),
+          new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#818CF8'},{offset:1,color:'rgba(129,140,248,0.3)'}]),
+          new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#A855F7'},{offset:1,color:'rgba(168,85,247,0.3)'}])
+        ];
+        return colors[p.dataIndex];
+      }
+    },
+    label: { show: true, position: 'top', color: '#E2E8F0', fontFamily: MONO, fontSize: 14, fontWeight: 'bold', formatter: '¥{c}万/月' }
+  }]
+}));
+
+// Refresh ScrollTrigger after everything is loaded
+window.addEventListener('load', () => { ScrollTrigger.refresh(); });
+</script>
+</body>
+</html>

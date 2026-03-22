@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI接单平台 · 技术架构设计</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --bg: #0F172A;
+  --glass: rgba(255,255,255,0.05);
+  --glass-border: rgba(255,255,255,0.1);
+  --blue: #3B82F6;
+  --green: #10B981;
+  --purple: #8B5CF6;
+  --orange: #F59E0B;
+  --red: #EF4444;
+  --pink: #EC4899;
+  --cyan: #06B6D4;
+  --gray: #64748B;
+}
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg);
+  color: #E2E8F0;
+  margin: 0;
+  overflow-x: hidden;
+}
+code, .mono { font-family: 'JetBrains Mono', monospace; }
+.mesh-bg {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 600px 400px at 20% 20%, rgba(59,130,246,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 500px at 80% 60%, rgba(139,92,246,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 90%, rgba(16,185,129,0.08) 0%, transparent 70%);
+}
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+}
+.glass-sm {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+}
+.section { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto; padding: 60px 24px; }
+.section-title {
+  font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #60A5FA, #A78BFA);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.section-sub { color: #94A3B8; margin-bottom: 2rem; font-size: 1rem; }
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge-get { background: rgba(16,185,129,0.2); color: #34D399; }
+.badge-post { background: rgba(59,130,246,0.2); color: #60A5FA; }
+.badge-put { background: rgba(245,158,11,0.2); color: #FBBF24; }
+.badge-delete { background: rgba(239,68,68,0.2); color: #F87171; }
+/* Architecture diagram styles */
+.arch-layer {
+  padding: 16px; border-radius: 12px; margin-bottom: 12px;
+  position: relative;
+}
+.arch-layer-title {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 10px; opacity: 0.7;
+}
+.arch-box {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+  cursor: pointer; transition: all 0.3s ease; text-align: center;
+  border: 1px solid transparent; position: relative;
+}
+.arch-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.arch-box.active {
+  border-color: #fff;
+  box-shadow: 0 0 20px rgba(255,255,255,0.15);
+}
+.arch-connector {
+  width: 2px; height: 20px; margin: 0 auto;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0.05));
+}
+.arch-connector-h {
+  height: 2px; flex: 1;
+  background: linear-gradient(to right, rgba(255,255,255,0.05), rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+}
+.arch-arrow {
+  width: 0; height: 0; margin: 0 auto;
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+  border-top: 8px solid rgba(255,255,255,0.3);
+}
+/* ER Diagram */
+.er-table {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; overflow: hidden; width: 100%; min-width: 200px;
+}
+.er-table-header {
+  padding: 10px 14px; font-weight: 700; font-size: 0.85rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.er-table-row {
+  padding: 4px 14px; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.er-table-row:last-child { border-bottom: none; }
+.er-pk { color: #FBBF24; }
+.er-fk { color: #F472B6; }
+.er-type { color: #64748B; font-size: 0.65rem; }
+/* Sequence diagram */
+.seq-lane {
+  text-align: center; flex: 1; position: relative;
+  border-right: 1px dashed rgba(255,255,255,0.08);
+  padding: 0 4px;
+}
+.seq-lane:last-child { border-right: none; }
+.seq-header {
+  padding: 8px 4px; font-size: 0.75rem; font-weight: 600;
+  border-radius: 8px; margin-bottom: 8px;
+}
+.seq-arrow {
+  position: relative; margin: 6px 0; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.seq-arrow-line {
+  height: 2px; width: 100%; position: relative;
+}
+.seq-arrow-line::after {
+  content: ''; position: absolute; right: -1px; top: -4px;
+  border-left: 8px solid; border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+.seq-label {
+  font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;
+  background: rgba(0,0,0,0.5); white-space: nowrap; position: absolute;
+  top: -10px; left: 50%; transform: translateX(-50%);
+}
+/* Tooltip / Detail panel */
+.detail-panel {
+  position: fixed; top: 0; right: -420px; width: 400px; height: 100vh;
+  z-index: 100; background: rgba(15,23,42,0.97); border-left: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px); padding: 32px 24px; overflow-y: auto;
+  transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.detail-panel.open { right: 0; }
+.detail-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99;
+  background: rgba(0,0,0,0.4); display: none;
+}
+.detail-overlay.open { display: block; }
+/* Table styles */
+.tech-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.tech-table th {
+  text-align: left; padding: 12px 16px; font-size: 0.8rem;
+  background: rgba(59,130,246,0.1); color: #93C5FD;
+  font-weight: 600; letter-spacing: 0.03em;
+}
+.tech-table th:first-child { border-radius: 10px 0 0 0; }
+.tech-table th:last-child { border-radius: 0 10px 0 0; }
+.tech-table td {
+  padding: 12px 16px; font-size: 0.82rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tech-table tr:hover td { background: rgba(255,255,255,0.02); }
+.tech-table .tech-name {
+  font-family: 'JetBrains Mono', monospace; color: #60A5FA;
+  font-weight: 500; font-size: 0.8rem;
+}
+/* Nav */
+.nav-item {
+  padding: 8px 16px; font-size: 0.82rem; cursor: pointer;
+  border-radius: 8px; transition: all 0.2s; color: #94A3B8;
+}
+.nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.06); color: #E2E8F0; }
+/* Security card */
+.sec-card {
+  padding: 20px; border-radius: 12px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  transition: all 0.3s;
+}
+.sec-card:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); }
+/* Animations */
+.fade-in { opacity: 0; transform: translateY(30px); }
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+@media (max-width: 768px) {
+  .section { padding: 40px 16px; }
+  .section-title { font-size: 1.5rem; }
+  .detail-panel { width: 100%; right: -100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="mesh-bg"></div>
+
+<!-- Side Navigation -->
+<nav class="fixed left-0 top-0 h-full w-56 z-50 hidden lg:flex flex-col py-8 px-3 border-r border-white/5 bg-[#0F172A]/80 backdrop-blur-lg">
+  <div class="text-xs font-bold text-blue-400 mb-6 px-4 tracking-wider uppercase mono">Tech Arch Doc</div>
+  <a href="#hero" class="nav-item mb-1">概览</a>
+  <a href="#arch" class="nav-item mb-1">系统架构总览</a>
+  <a href="#tech" class="nav-item mb-1">技术选型</a>
+  <a href="#er" class="nav-item mb-1">数据库ER设计</a>
+  <a href="#api" class="nav-item mb-1">API接口设计</a>
+  <a href="#flow" class="nav-item mb-1">核心流程时序</a>
+  <a href="#security" class="nav-item mb-1">安全架构</a>
+  <a href="#deploy" class="nav-item mb-1">部署架构</a>
+  <div class="mt-auto px-4 text-xs text-slate-600 mono">v1.0 · 2026-03</div>
+</nav>
+
+<!-- Detail Panel -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detailPanel">
+  <button onclick="closeDetail()" class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-slate-400 text-lg">&times;</button>
+  <div id="detailContent"></div>
+</div>
+
+<div class="lg:ml-56">
+
+<!-- ========== 1. HERO ========== -->
+<section id="hero" class="section min-h-screen flex flex-col justify-center items-center text-center">
+  <div class="fade-in">
+    <div class="inline-block px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300 text-sm mb-6 mono">Technical Architecture Document</div>
+    <h1 class="text-5xl md:text-7xl font-black mb-4 leading-tight">
+      <span class="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">AI接单平台</span>
+    </h1>
+    <p class="text-2xl md:text-3xl text-slate-300 font-light mb-2">技术架构设计</p>
+    <p class="text-slate-500 text-lg max-w-xl mx-auto mt-4">系统架构、技术选型、数据模型与API设计</p>
+    <div class="flex flex-wrap gap-3 justify-center mt-10">
+      <span class="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs mono">Next.js 14</span>
+      <span class="px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-300 text-xs mono">Go + FastAPI</span>
+      <span class="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs mono">LangChain</span>
+      <span class="px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-300 text-xs mono">PostgreSQL 16</span>
+      <span class="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs mono">Kubernetes</span>
+      <span class="px-3 py-1.5 rounded-lg bg-pink-500/10 border border-pink-500/20 text-pink-300 text-xs mono">Milvus</span>
+    </div>
+    <div class="mt-16 text-slate-600 text-sm">
+      <span class="mono">v1.0</span> &middot; 2026年3月 &middot; 面向SMB客户 + AI技能自由职业者
+    </div>
+  </div>
+</section>
+
+<!-- ========== 2. SYSTEM ARCHITECTURE ========== -->
+<section id="arch" class="section">
+  <div class="fade-in">
+    <div class="section-title">系统架构总览</div>
+    <p class="section-sub">Platform Architecture Overview — 分层微服务架构，AI能力中台驱动</p>
+  </div>
+
+  <div class="glass p-6 md:p-8 fade-in">
+    <!-- Client Layer -->
+    <div class="arch-layer" style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15);">
+      <div class="arch-layer-title" style="color: #60A5FA;">客户端层 Client Layer</div>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <div class="arch-box" style="background: rgba(59,130,246,0.15); color: #93C5FD;" data-detail="web" onclick="showDetail('web')">
+          <span>&#x1f310;&nbsp;Web端<br><span class="mono text-xs opacity-70">React / Next.js</span></span>
+        </div>
+        <div class="arch-box" style="background: rgba(59,130,246,0.15); color: #93C5FD;" data-detail="mobile" onclick="showDetail('mobile')">
+          <span>&#x1f4f1;&nbsp;移动端<br><span class="mono text-xs opacity-70">React Native</span></span>
+        </div>
+        <div class="arch-box" style="background: rgba(59,130,246,0.15); color: #93C5FD;" data-detail="wechat" onclick="showDetail('wechat')">
+          <span>&#x1f4ac;&nbsp;微信小程序<br><span class="mono text-xs opacity-70">Taro</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-center"><div class="arch-connector"></div></div>
+    <div class="flex justify-center"><div class="arch-arrow"></div></div>
+
+    <!-- API Gateway -->
+    <div class="arch-layer" style="background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.15);">
+      <div class="arch-layer-title" style="color: #22D3EE;">API 网关层 Gateway</div>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <div class="arch-box" style="background: rgba(6,182,212,0.15); color: #67E8F9;" onclick="showDetail('gateway')">
+          <span>Nginx + Kong API Gateway<br><span class="mono text-xs opacity-70">限流 · 鉴权 · 路由 · 日志</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-center"><div class="arch-connector"></div></div>
+    <div class="flex justify-center"><div class="arch-arrow"></div></div>
+
+    <!-- Application Services -->
+    <div class="arch-layer" style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.15);">
+      <div class="arch-layer-title" style="color: #34D399;">应用服务层 Application Services（微服务）</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('user-svc')">用户服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('demand-svc')">需求服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('order-svc')">订单服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('match-svc')">匹配服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('agent-svc')">Agent定制服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('pay-svc')">支付服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('msg-svc')">消息服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('ai-toolbox')">AI工具箱服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('qc-svc')">质检服务</div>
+        <div class="arch-box" style="background: rgba(16,185,129,0.13); color: #6EE7B7;" onclick="showDetail('review-svc')">评价服务</div>
+      </div>
+    </div>
+
+    <div class="flex justify-center gap-12">
+      <div class="flex flex-col items-center"><div class="arch-connector"></div><div class="arch-arrow"></div></div>
+      <div class="flex flex-col items-center"><div class="arch-connector"></div><div class="arch-arrow"></div></div>
+    </div>
+
+    <!-- AI Layer + Data Layer side by side -->
+    <div class="grid md:grid-cols-2 gap-3">
+      <!-- AI Layer -->
+      <div class="arch-layer" style="background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.15);">
+        <div class="arch-layer-title" style="color: #A78BFA;">AI 能力层 AI Layer</div>
+        <div class="flex flex-wrap gap-2">
+          <div class="arch-box text-xs" style="background: rgba(139,92,246,0.13); color: #C4B5FD;" onclick="showDetail('llm')">LLM API<br><span class="mono opacity-70" style="font-size:0.6rem">GPT/Claude/Qwen</span></div>
+          <div class="arch-box text-xs" style="background: rgba(139,92,246,0.13); color: #C4B5FD;">Embedding<br><span class="mono opacity-70" style="font-size:0.6rem">文本向量化</span></div>
+          <div class="arch-box text-xs" style="background: rgba(139,92,246,0.13); color: #C4B5FD;">Vector DB<br><span class="mono opacity-70" style="font-size:0.6rem">Milvus</span></div>
+          <div class="arch-box text-xs" style="background: rgba(139,92,246,0.13); color: #C4B5FD;">Agent Runtime<br><span class="mono opacity-70" style="font-size:0.6rem">LangChain/Graph</span></div>
+        </div>
+      </div>
+      <!-- Data Layer -->
+      <div class="arch-layer" style="background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.15);">
+        <div class="arch-layer-title" style="color: #FBBF24;">数据层 Data Layer</div>
+        <div class="flex flex-wrap gap-2">
+          <div class="arch-box text-xs" style="background: rgba(245,158,11,0.13); color: #FDE68A;">PostgreSQL<br><span class="mono opacity-70" style="font-size:0.6rem">主数据库</span></div>
+          <div class="arch-box text-xs" style="background: rgba(245,158,11,0.13); color: #FDE68A;">Redis<br><span class="mono opacity-70" style="font-size:0.6rem">缓存/锁</span></div>
+          <div class="arch-box text-xs" style="background: rgba(245,158,11,0.13); color: #FDE68A;">MongoDB<br><span class="mono opacity-70" style="font-size:0.6rem">日志/文件</span></div>
+          <div class="arch-box text-xs" style="background: rgba(245,158,11,0.13); color: #FDE68A;">ES<br><span class="mono opacity-70" style="font-size:0.6rem">全文检索</span></div>
+          <div class="arch-box text-xs" style="background: rgba(245,158,11,0.13); color: #FDE68A;">MinIO<br><span class="mono opacity-70" style="font-size:0.6rem">文件存储</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-center"><div class="arch-connector"></div></div>
+    <div class="flex justify-center"><div class="arch-arrow"></div></div>
+
+    <!-- Infrastructure -->
+    <div class="arch-layer" style="background: rgba(100,116,139,0.08); border: 1px solid rgba(100,116,139,0.15);">
+      <div class="arch-layer-title" style="color: #94A3B8;">基础设施层 Infrastructure</div>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <div class="arch-box text-xs" style="background: rgba(100,116,139,0.13); color: #CBD5E1;">Docker + K8s<br><span class="opacity-60">容器编排</span></div>
+        <div class="arch-box text-xs" style="background: rgba(100,116,139,0.13); color: #CBD5E1;">GitHub Actions<br><span class="opacity-60">CI/CD</span></div>
+        <div class="arch-box text-xs" style="background: rgba(100,116,139,0.13); color: #CBD5E1;">Prometheus+Grafana<br><span class="opacity-60">监控</span></div>
+        <div class="arch-box text-xs" style="background: rgba(100,116,139,0.13); color: #CBD5E1;">ELK Stack<br><span class="opacity-60">日志中心</span></div>
+      </div>
+    </div>
+
+    <!-- Third Party -->
+    <div class="mt-3 arch-layer" style="background: rgba(236,72,153,0.04); border: 1px solid rgba(236,72,153,0.12);">
+      <div class="arch-layer-title" style="color: #F472B6;">第三方服务 Third Party</div>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <div class="arch-box text-xs" style="background: rgba(236,72,153,0.1); color: #F9A8D4;">微信支付 / 支付宝</div>
+        <div class="arch-box text-xs" style="background: rgba(236,72,153,0.1); color: #F9A8D4;">阿里云SMS</div>
+        <div class="arch-box text-xs" style="background: rgba(236,72,153,0.1); color: #F9A8D4;">阿里云OSS</div>
+        <div class="arch-box text-xs" style="background: rgba(236,72,153,0.1); color: #F9A8D4;">CDN加速</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-center text-slate-600 text-xs mt-4 mono">* 点击架构图中的服务方块查看详情</p>
+</section>
+
+<!-- ========== 3. TECH SELECTION ========== -->
+<section id="tech" class="section">
+  <div class="fade-in">
+    <div class="section-title">技术选型</div>
+    <p class="section-sub">Technology Selection — 每一层技术栈及选型理由</p>
+  </div>
+  <div class="glass p-2 md:p-4 overflow-x-auto fade-in">
+    <table class="tech-table">
+      <thead>
+        <tr>
+          <th style="width:14%">层级</th>
+          <th style="width:28%">技术</th>
+          <th>选型理由</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>前端</td><td class="tech-name">Next.js 14 + TypeScript + TailwindCSS</td><td>SSR/SSG性能优化，SEO友好，组件化开发效率高</td></tr>
+        <tr><td>移动端</td><td class="tech-name">React Native / Taro (微信小程序)</td><td>跨平台复用前端能力，Taro原生支持微信生态</td></tr>
+        <tr><td>API网关</td><td class="tech-name">Kong</td><td>限流、鉴权、日志、插件生态丰富，高性能OpenResty底层</td></tr>
+        <tr><td>后端框架</td><td class="tech-name">Go (Gin) + Python (FastAPI)</td><td>Go处理高并发业务逻辑，Python处理AI相关服务，各取所长</td></tr>
+        <tr><td>微服务通信</td><td class="tech-name">gRPC + Kafka</td><td>同步调用用gRPC（低延迟、强类型），异步解耦用Kafka消息队列</td></tr>
+        <tr><td>主数据库</td><td class="tech-name">PostgreSQL 16</td><td>ACID事务保障，JSON/JSONB原生支持，扩展性强，社区成熟</td></tr>
+        <tr><td>缓存</td><td class="tech-name">Redis 7</td><td>热数据缓存、分布式锁、排行榜、会话管理，毫秒级响应</td></tr>
+        <tr><td>搜索引擎</td><td class="tech-name">Elasticsearch 8</td><td>全文检索，服务者/需求搜索，支持中文分词，聚合分析强</td></tr>
+        <tr><td>文件存储</td><td class="tech-name">MinIO / Alibaba Cloud OSS</td><td>S3协议兼容，成本可控，私有化部署灵活</td></tr>
+        <tr><td>向量数据库</td><td class="tech-name">Milvus</td><td>Agent知识库存储，语义检索，高性能ANN索引</td></tr>
+        <tr><td>LLM调用</td><td class="tech-name">通义千问 + Claude API</td><td>国内场景用通义千问（合规/低延迟），复杂任务用Claude（推理强）</td></tr>
+        <tr><td>Agent框架</td><td class="tech-name">LangChain + LangGraph</td><td>工作流编排、工具调用、状态管理，社区生态活跃</td></tr>
+        <tr><td>容器编排</td><td class="tech-name">Docker + Kubernetes</td><td>弹性伸缩、滚动更新、服务发现、自愈能力</td></tr>
+        <tr><td>CI/CD</td><td class="tech-name">GitHub Actions</td><td>与代码仓库深度集成，自动化测试部署，YAML配置简洁</td></tr>
+        <tr><td>监控</td><td class="tech-name">Prometheus + Grafana</td><td>指标采集+可视化告警，K8s原生集成，开源免费</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ========== 4. ER DIAGRAM ========== -->
+<section id="er" class="section">
+  <div class="fade-in">
+    <div class="section-title">数据库ER设计</div>
+    <p class="section-sub">Entity-Relationship Design — 核心数据表结构与关系</p>
+  </div>
+
+  <div class="fade-in overflow-x-auto pb-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 min-w-[700px]">
+
+      <!-- users -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(59,130,246,0.15); color: #93C5FD;">users &nbsp;<span class="text-xs opacity-60">用户表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span>phone</span><span class="er-type">varchar(20)</span></div>
+        <div class="er-table-row"><span>nickname</span><span class="er-type">varchar(50)</span></div>
+        <div class="er-table-row"><span>avatar</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>role</span><span class="er-type">enum(client/provider/both)</span></div>
+        <div class="er-table-row"><span>city</span><span class="er-type">varchar(30)</span></div>
+        <div class="er-table-row"><span>bio</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>status</span><span class="er-type">smallint</span></div>
+        <div class="er-table-row"><span>created_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- provider_profiles -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(59,130,246,0.15); color: #93C5FD;">provider_profiles &nbsp;<span class="text-xs opacity-60">服务者档案</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> user_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span>skills</span><span class="er-type">text[]</span></div>
+        <div class="er-table-row"><span>rating</span><span class="er-type">numeric(3,2)</span></div>
+        <div class="er-table-row"><span>total_orders</span><span class="er-type">int</span></div>
+        <div class="er-table-row"><span>response_time</span><span class="er-type">interval</span></div>
+        <div class="er-table-row"><span>hourly_rate</span><span class="er-type">numeric(10,2)</span></div>
+        <div class="er-table-row"><span>certification_level</span><span class="er-type">smallint</span></div>
+      </div>
+
+      <!-- demands -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(16,185,129,0.15); color: #6EE7B7;">demands &nbsp;<span class="text-xs opacity-60">需求表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> client_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span>title</span><span class="er-type">varchar(200)</span></div>
+        <div class="er-table-row"><span>description</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>category</span><span class="er-type">varchar(50)</span></div>
+        <div class="er-table-row"><span>budget_min / budget_max</span><span class="er-type">numeric</span></div>
+        <div class="er-table-row"><span>deadline</span><span class="er-type">timestamptz</span></div>
+        <div class="er-table-row"><span>status</span><span class="er-type">enum(5 states)</span></div>
+        <div class="er-table-row"><span>ai_parsed_json</span><span class="er-type">jsonb</span></div>
+        <div class="er-table-row"><span>created_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- orders -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(139,92,246,0.15); color: #C4B5FD;">orders &nbsp;<span class="text-xs opacity-60">订单表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> demand_id</span><span class="er-type">bigint &rarr; demands.id</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> client_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> provider_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span>amount</span><span class="er-type">numeric(12,2)</span></div>
+        <div class="er-table-row"><span>status</span><span class="er-type">enum(7 states)</span></div>
+        <div class="er-table-row"><span>started_at</span><span class="er-type">timestamptz</span></div>
+        <div class="er-table-row"><span>deadline</span><span class="er-type">timestamptz</span></div>
+        <div class="er-table-row"><span>completed_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- order_milestones -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(139,92,246,0.15); color: #C4B5FD;">order_milestones &nbsp;<span class="text-xs opacity-60">里程碑</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span>title</span><span class="er-type">varchar(100)</span></div>
+        <div class="er-table-row"><span>status</span><span class="er-type">smallint</span></div>
+        <div class="er-table-row"><span>due_date</span><span class="er-type">timestamptz</span></div>
+        <div class="er-table-row"><span>completed_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- messages -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(6,182,212,0.15); color: #67E8F9;">messages &nbsp;<span class="text-xs opacity-60">消息表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> sender_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span>content</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>type</span><span class="er-type">enum(text/file/system)</span></div>
+        <div class="er-table-row"><span>created_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- files -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(245,158,11,0.15); color: #FDE68A;">files &nbsp;<span class="text-xs opacity-60">文件表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> uploader_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span>filename</span><span class="er-type">varchar(255)</span></div>
+        <div class="er-table-row"><span>url</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>size</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span>type</span><span class="er-type">varchar(50)</span></div>
+        <div class="er-table-row"><span>created_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- reviews -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(236,72,153,0.15); color: #F9A8D4;">reviews &nbsp;<span class="text-xs opacity-60">评价表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> reviewer_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> reviewee_id</span><span class="er-type">bigint &rarr; users.id</span></div>
+        <div class="er-table-row"><span>overall_score</span><span class="er-type">numeric(2,1)</span></div>
+        <div class="er-table-row"><span>quality / communication / speed</span><span class="er-type">numeric(2,1)</span></div>
+        <div class="er-table-row"><span>tags</span><span class="er-type">text[]</span></div>
+        <div class="er-table-row"><span>content</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>created_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- payments -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(245,158,11,0.15); color: #FDE68A;">payments &nbsp;<span class="text-xs opacity-60">支付表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span>amount</span><span class="er-type">numeric(12,2)</span></div>
+        <div class="er-table-row"><span>status</span><span class="er-type">enum</span></div>
+        <div class="er-table-row"><span>payment_method</span><span class="er-type">varchar(20)</span></div>
+        <div class="er-table-row"><span>paid_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+      <!-- agents -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(139,92,246,0.15); color: #C4B5FD;">agents &nbsp;<span class="text-xs opacity-60">Agent表</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span>name</span><span class="er-type">varchar(100)</span></div>
+        <div class="er-table-row"><span>description</span><span class="er-type">text</span></div>
+        <div class="er-table-row"><span>config_json</span><span class="er-type">jsonb</span></div>
+        <div class="er-table-row"><span>status</span><span class="er-type">enum(building/testing/deployed)</span></div>
+        <div class="er-table-row"><span>endpoint_url</span><span class="er-type">text</span></div>
+      </div>
+
+      <!-- ai_quality_checks -->
+      <div class="er-table">
+        <div class="er-table-header" style="background: rgba(16,185,129,0.15); color: #6EE7B7;">ai_quality_checks &nbsp;<span class="text-xs opacity-60">质检记录</span></div>
+        <div class="er-table-row"><span><span class="er-pk">PK</span> id</span><span class="er-type">bigint</span></div>
+        <div class="er-table-row"><span><span class="er-fk">FK</span> order_id</span><span class="er-type">bigint &rarr; orders.id</span></div>
+        <div class="er-table-row"><span>score</span><span class="er-type">numeric(4,1)</span></div>
+        <div class="er-table-row"><span>check_items_json</span><span class="er-type">jsonb</span></div>
+        <div class="er-table-row"><span>passed</span><span class="er-type">boolean</span></div>
+        <div class="er-table-row"><span>created_at</span><span class="er-type">timestamptz</span></div>
+      </div>
+
+    </div>
+
+    <!-- Relationship Legend -->
+    <div class="glass-sm p-4 mt-6">
+      <div class="text-sm font-semibold mb-3 text-slate-300">关系说明 Relationships</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs mono text-slate-400">
+        <div><span class="text-blue-400">users</span> 1 &mdash;&mdash;&lt; N <span class="text-green-400">demands</span> (client_id)</div>
+        <div><span class="text-blue-400">users</span> 1 &mdash;&mdash;&lt; N <span class="text-purple-400">orders</span> (client_id, provider_id)</div>
+        <div><span class="text-green-400">demands</span> 1 &mdash;&mdash;&lt; N <span class="text-purple-400">orders</span> (demand_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash;&lt; N <span class="text-purple-300">order_milestones</span> (order_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash;&lt; N <span class="text-cyan-400">messages</span> (order_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash;&lt; N <span class="text-yellow-400">files</span> (order_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash;&lt; N <span class="text-pink-400">reviews</span> (order_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash; 1 <span class="text-yellow-400">payments</span> (order_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash; 0..1 <span class="text-purple-300">agents</span> (order_id)</div>
+        <div><span class="text-purple-400">orders</span> 1 &mdash;&mdash;&lt; N <span class="text-green-400">ai_quality_checks</span> (order_id)</div>
+        <div><span class="text-blue-400">users</span> 1 &mdash;&mdash; 0..1 <span class="text-blue-300">provider_profiles</span> (user_id)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 5. API DESIGN ========== -->
+<section id="api" class="section">
+  <div class="fade-in">
+    <div class="section-title">核心API接口设计</div>
+    <p class="section-sub">RESTful API Endpoints — 按服务模块划分</p>
+  </div>
+
+  <div class="space-y-8 fade-in">
+
+    <!-- 用户服务 -->
+    <div class="glass p-6">
+      <h3 class="text-lg font-bold text-blue-300 mb-4">用户服务 User Service</h3>
+      <div class="space-y-3">
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/auth/sms-code</span>
+          <span class="text-slate-500 text-sm ml-auto">发送验证码</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/auth/login</span>
+          <span class="text-slate-500 text-sm ml-auto">手机号登录</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/users/me</span>
+          <span class="text-slate-500 text-sm ml-auto">获取当前用户信息</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-put">PUT</span>
+          <span class="mono text-sm text-slate-200">/api/v1/users/me</span>
+          <span class="text-slate-500 text-sm ml-auto">更新用户信息</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/providers/:id</span>
+          <span class="text-slate-500 text-sm ml-auto">获取服务者详情</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 需求服务 -->
+    <div class="glass p-6">
+      <h3 class="text-lg font-bold text-green-300 mb-4">需求服务 Demand Service</h3>
+      <div class="space-y-3">
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/demands</span>
+          <span class="text-slate-500 text-sm ml-auto">创建需求</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/demands/:id/parse</span>
+          <span class="text-slate-500 text-sm ml-auto">AI解析需求</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/demands/:id/matches</span>
+          <span class="text-slate-500 text-sm ml-auto">获取匹配服务者</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-put">PUT</span>
+          <span class="mono text-sm text-slate-200">/api/v1/demands/:id</span>
+          <span class="text-slate-500 text-sm ml-auto">更新需求</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 订单服务 -->
+    <div class="glass p-6">
+      <h3 class="text-lg font-bold text-purple-300 mb-4">订单服务 Order Service</h3>
+      <div class="space-y-3">
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/orders</span>
+          <span class="text-slate-500 text-sm ml-auto">创建订单</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/orders/:id</span>
+          <span class="text-slate-500 text-sm ml-auto">获取订单详情</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-put">PUT</span>
+          <span class="mono text-sm text-slate-200">/api/v1/orders/:id/accept</span>
+          <span class="text-slate-500 text-sm ml-auto">接单</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-put">PUT</span>
+          <span class="mono text-sm text-slate-200">/api/v1/orders/:id/deliver</span>
+          <span class="text-slate-500 text-sm ml-auto">提交交付</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-put">PUT</span>
+          <span class="mono text-sm text-slate-200">/api/v1/orders/:id/complete</span>
+          <span class="text-slate-500 text-sm ml-auto">确认完成</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/orders/:id/timeline</span>
+          <span class="text-slate-500 text-sm ml-auto">获取订单时间线</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent服务 -->
+    <div class="glass p-6">
+      <h3 class="text-lg font-bold text-violet-300 mb-4">Agent服务 Agent Builder Service</h3>
+      <div class="space-y-3">
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/agents</span>
+          <span class="text-slate-500 text-sm ml-auto">创建Agent</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/agents/:id</span>
+          <span class="text-slate-500 text-sm ml-auto">获取Agent详情</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/agents/:id/test</span>
+          <span class="text-slate-500 text-sm ml-auto">测试Agent</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-put">PUT</span>
+          <span class="mono text-sm text-slate-200">/api/v1/agents/:id/deploy</span>
+          <span class="text-slate-500 text-sm ml-auto">部署Agent</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 评价服务 -->
+    <div class="glass p-6">
+      <h3 class="text-lg font-bold text-pink-300 mb-4">评价服务 Review Service</h3>
+      <div class="space-y-3">
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-post">POST</span>
+          <span class="mono text-sm text-slate-200">/api/v1/reviews</span>
+          <span class="text-slate-500 text-sm ml-auto">提交评价</span>
+        </div>
+        <div class="glass-sm p-3 flex flex-wrap items-center gap-3">
+          <span class="badge badge-get">GET</span>
+          <span class="mono text-sm text-slate-200">/api/v1/providers/:id/reviews</span>
+          <span class="text-slate-500 text-sm ml-auto">获取服务者评价</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 6. SEQUENCE DIAGRAMS ========== -->
+<section id="flow" class="section">
+  <div class="fade-in">
+    <div class="section-title">核心流程时序图</div>
+    <p class="section-sub">Sequence Diagrams — 关键业务流程的交互时序</p>
+  </div>
+
+  <!-- Flow 1: Demand -> Match -> Order -->
+  <div class="glass p-6 mb-8 fade-in">
+    <h3 class="text-base font-bold text-cyan-300 mb-2">流程一：发布需求 &rarr; AI匹配 &rarr; 下单</h3>
+    <p class="text-xs text-slate-500 mb-6">Client publishes demand &rarr; AI parses &amp; matches providers &rarr; Order creation &amp; payment</p>
+    <div class="overflow-x-auto">
+      <div style="min-width:800px;">
+        <!-- Lanes header -->
+        <div class="flex mb-1">
+          <div class="flex-1 text-center"><div class="inline-block px-4 py-2 rounded-lg text-xs font-bold" style="background:rgba(59,130,246,0.15);color:#93C5FD;">客户端<br>Client</div></div>
+          <div class="flex-1 text-center"><div class="inline-block px-4 py-2 rounded-lg text-xs font-bold" style="background:rgba(6,182,212,0.15);color:#67E8F9;">API Gateway</div></div>
+          <div class="flex-1 text-center"><div class="inline-block px-4 py-2 rounded-lg text-xs font-bold" style="background:rgba(16,185,129,0.15);color:#6EE7B7;">需求服务<br>Demand Svc</div></div>
+          <div class="flex-1 text-center"><div class="inline-block px-4 py-2 rounded-lg text-xs font-bold" style="background:rgba(139,92,246,0.15);color:#C4B5FD;">AI解析<br>AI Parse</div></div>
+          <div class="flex-1 text-center"><div class="inline-block px-4 py-2 rounded-lg text-xs font-bold" style="background:rgba(16,185,129,0.15);color:#6EE7B7;">匹配服务<br>Match Svc</div></div>
+          <div class="flex-1 text-center"><div class="inline-block px-4 py-2 rounded-lg text-xs font-bold" style="background:rgba(245,158,11,0.15);color:#FDE68A;">订单/支付<br>Order+Pay</div></div>
+        </div>
+        <!-- Vertical lines -->
+        <div class="flex relative" style="height: 400px;">
+          <div class="flex-1 relative flex justify-center"><div class="w-px h-full" style="background:rgba(59,130,246,0.2);"></div></div>
+          <div class="flex-1 relative flex justify-center"><div class="w-px h-full" style="background:rgba(6,182,212,0.2);"></div></div>
+          <div class="flex-1 relative flex justify-center"><div class="w-px h-full" style="background:rgba(16,185,129,0.2);"></div></div>
+          <div class="flex-1 relative flex justify-center"><div class="w-px h-full" style="background:rgba(139,92,246,0.2);"></div></div>
+          <div class="flex-1 relative flex justify-center"><div class="w-px h-full" style="background:rgba(16,185,129,0.2);"></div></div>
+          <div class="flex-1 relative flex justify-center"><div class="w-px h-full" style="background:rgba(245,158,11,0.2);"></div></div>
+
+          <!-- Arrows overlaid -->
+          <div class="absolute inset-0 flex flex-col justify-between py-4" style="pointer-events:none;">
+            <!-- Step 1 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1"></div>
+              <div class="flex-1 relative">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-r from-blue-400 to-cyan-400"></div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-cyan-400"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-blue-300 whitespace-nowrap mono">1. 提交需求</div>
+              </div>
+              <div class="flex-1"></div><div class="flex-1"></div><div class="flex-1"></div>
+            </div>
+            <!-- Step 2 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1"></div><div class="flex-1"></div>
+              <div class="flex-1 relative">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-r from-cyan-400 to-green-400"></div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-green-400"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-green-300 whitespace-nowrap mono">2. 路由转发</div>
+              </div>
+              <div class="flex-1"></div><div class="flex-1"></div>
+            </div>
+            <!-- Step 3 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1"></div><div class="flex-1"></div><div class="flex-1"></div>
+              <div class="flex-1 relative">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-r from-green-400 to-purple-400"></div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-purple-400"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-purple-300 whitespace-nowrap mono">3. AI解析需求</div>
+              </div>
+              <div class="flex-1"></div>
+            </div>
+            <!-- Step 4 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1"></div><div class="flex-1"></div><div class="flex-1"></div>
+              <div class="flex-1 relative">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-l from-green-400 to-purple-400"></div>
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-6 border-transparent border-r-green-400"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-purple-300 whitespace-nowrap mono">4. 返回解析结果</div>
+              </div>
+              <div class="flex-1"></div>
+            </div>
+            <!-- Step 5 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1"></div><div class="flex-1"></div><div class="flex-1"></div>
+              <div class="flex-1 relative" style="flex:2;">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-r from-green-400 to-green-300"></div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-green-300"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-green-300 whitespace-nowrap mono">5. 智能匹配服务者</div>
+              </div>
+            </div>
+            <!-- Step 6 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1 relative" style="flex:5;">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-r from-blue-400 to-yellow-400"></div>
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-yellow-400"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-yellow-300 whitespace-nowrap mono">6. 确认下单 + 支付</div>
+              </div>
+              <div class="flex-1"></div>
+            </div>
+            <!-- Step 7 -->
+            <div class="flex items-center px-4" style="height:48px;">
+              <div class="flex-1 relative" style="flex:5;">
+                <div class="absolute inset-x-0 top-1/2 h-0.5 bg-gradient-to-l from-blue-400 to-yellow-400"></div>
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-6 border-transparent border-r-blue-400"></div>
+                <div class="absolute left-1/2 -translate-x-1/2 -top-2 text-xs bg-slate-900/80 px-2 rounded text-blue-300 whitespace-nowrap mono">7. 订单创建成功，通知服务者</div>
+              </div>
+              <div class="flex-1"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flow 2: Agent Delivery -->
+  <div class="glass p-6 fade-in">
+    <h3 class="text-base font-bold text-violet-300 mb-2">流程二：Agent定制交付流程</h3>
+    <p class="text-xs text-slate-500 mb-6">Requirements analysis &rarr; Design &rarr; Build &rarr; Test &rarr; Deploy &rarr; QC &rarr; Deliver</p>
+    <div class="overflow-x-auto">
+      <div class="flex gap-0 items-stretch" style="min-width:750px;">
+        <!-- Step cards with connectors -->
+        <div class="flex-1 text-center">
+          <div class="glass-sm p-3 mx-1 h-full flex flex-col justify-center" style="border-color: rgba(59,130,246,0.3);">
+            <div class="text-2xl mb-1">&#x1f4cb;</div>
+            <div class="text-xs font-bold text-blue-300">需求分析</div>
+            <div class="text-xs text-slate-500 mt-1 mono">Requirements</div>
+            <div class="text-xs text-slate-600 mt-2">AI解析客户需求<br>生成结构化规格</div>
+          </div>
+        </div>
+        <div class="flex items-center text-slate-600">&rarr;</div>
+        <div class="flex-1 text-center">
+          <div class="glass-sm p-3 mx-1 h-full flex flex-col justify-center" style="border-color: rgba(6,182,212,0.3);">
+            <div class="text-2xl mb-1">&#x1f3a8;</div>
+            <div class="text-xs font-bold text-cyan-300">方案设计</div>
+            <div class="text-xs text-slate-500 mt-1 mono">Design</div>
+            <div class="text-xs text-slate-600 mt-2">Agent架构设计<br>工具链选择</div>
+          </div>
+        </div>
+        <div class="flex items-center text-slate-600">&rarr;</div>
+        <div class="flex-1 text-center">
+          <div class="glass-sm p-3 mx-1 h-full flex flex-col justify-center" style="border-color: rgba(16,185,129,0.3);">
+            <div class="text-2xl mb-1">&#x1f528;</div>
+            <div class="text-xs font-bold text-green-300">开发构建</div>
+            <div class="text-xs text-slate-500 mt-1 mono">Build</div>
+            <div class="text-xs text-slate-600 mt-2">Prompt工程<br>工具集成/RAG</div>
+          </div>
+        </div>
+        <div class="flex items-center text-slate-600">&rarr;</div>
+        <div class="flex-1 text-center">
+          <div class="glass-sm p-3 mx-1 h-full flex flex-col justify-center" style="border-color: rgba(139,92,246,0.3);">
+            <div class="text-2xl mb-1">&#x1f9ea;</div>
+            <div class="text-xs font-bold text-purple-300">测试验证</div>
+            <div class="text-xs text-slate-500 mt-1 mono">Test</div>
+            <div class="text-xs text-slate-600 mt-2">自动化测试<br>Edge case检验</div>
+          </div>
+        </div>
+        <div class="flex items-center text-slate-600">&rarr;</div>
+        <div class="flex-1 text-center">
+          <div class="glass-sm p-3 mx-1 h-full flex flex-col justify-center" style="border-color: rgba(245,158,11,0.3);">
+            <div class="text-2xl mb-1">&#x1f680;</div>
+            <div class="text-xs font-bold text-yellow-300">部署上线</div>
+            <div class="text-xs text-slate-500 mt-1 mono">Deploy</div>
+            <div class="text-xs text-slate-600 mt-2">K8s容器部署<br>API端点生成</div>
+          </div>
+        </div>
+        <div class="flex items-center text-slate-600">&rarr;</div>
+        <div class="flex-1 text-center">
+          <div class="glass-sm p-3 mx-1 h-full flex flex-col justify-center" style="border-color: rgba(236,72,153,0.3);">
+            <div class="text-2xl mb-1">&#x2705;</div>
+            <div class="text-xs font-bold text-pink-300">质检交付</div>
+            <div class="text-xs text-slate-500 mt-1 mono">QC + Deliver</div>
+            <div class="text-xs text-slate-600 mt-2">AI自动质检<br>客户确认验收</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 7. SECURITY ========== -->
+<section id="security" class="section">
+  <div class="fade-in">
+    <div class="section-title">安全架构</div>
+    <p class="section-sub">Security Architecture — 多层安全防护体系</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 fade-in">
+    <div class="sec-card">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background:rgba(59,130,246,0.15);">&#x1f511;</div>
+        <div class="font-bold text-blue-300">身份认证</div>
+      </div>
+      <div class="text-sm text-slate-400 space-y-1.5">
+        <div><span class="mono text-blue-400 text-xs">JWT</span> Token认证机制</div>
+        <div>Access Token (15min) + Refresh Token (7d)</div>
+        <div>手机号+验证码 / 微信OAuth登录</div>
+        <div>Token黑名单机制（Redis存储）</div>
+      </div>
+    </div>
+
+    <div class="sec-card">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background:rgba(16,185,129,0.15);">&#x1f6e1;</div>
+        <div class="font-bold text-green-300">API安全</div>
+      </div>
+      <div class="text-sm text-slate-400 space-y-1.5">
+        <div><span class="mono text-green-400 text-xs">Kong</span> 网关层限流</div>
+        <div>IP级别: 100 req/min</div>
+        <div>用户级别: 60 req/min</div>
+        <div>请求签名验证，防重放攻击</div>
+      </div>
+    </div>
+
+    <div class="sec-card">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background:rgba(139,92,246,0.15);">&#x1f512;</div>
+        <div class="font-bold text-purple-300">数据加密</div>
+      </div>
+      <div class="text-sm text-slate-400 space-y-1.5">
+        <div><span class="mono text-purple-400 text-xs">TLS 1.3</span> 传输层加密</div>
+        <div><span class="mono text-purple-400 text-xs">AES-256</span> 敏感数据落盘加密</div>
+        <div>手机号、身份证等PII字段脱敏存储</div>
+        <div>数据库连接SSL加密</div>
+      </div>
+    </div>
+
+    <div class="sec-card">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background:rgba(245,158,11,0.15);">&#x1f4b3;</div>
+        <div class="font-bold text-yellow-300">支付安全</div>
+      </div>
+      <div class="text-sm text-slate-400 space-y-1.5">
+        <div><span class="mono text-yellow-400 text-xs">PCI DSS</span> 合规方向</div>
+        <div>资金托管：平台不直接接触资金</div>
+        <div>支付回调签名校验</div>
+        <div>订单金额双重校验（前后端+数据库）</div>
+      </div>
+    </div>
+
+    <div class="sec-card">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background:rgba(236,72,153,0.15);">&#x1f465;</div>
+        <div class="font-bold text-pink-300">权限控制</div>
+      </div>
+      <div class="text-sm text-slate-400 space-y-1.5">
+        <div><span class="mono text-pink-400 text-xs">RBAC</span> 角色权限模型</div>
+        <div>角色: admin / client / provider / ops</div>
+        <div>资源级别权限校验中间件</div>
+        <div>操作审计日志全量记录</div>
+      </div>
+    </div>
+
+    <div class="sec-card">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" style="background:rgba(6,182,212,0.15);">&#x1f50d;</div>
+        <div class="font-bold text-cyan-300">安全审计</div>
+      </div>
+      <div class="text-sm text-slate-400 space-y-1.5">
+        <div>全链路日志追踪 (Trace ID)</div>
+        <div>异常行为实时告警</div>
+        <div>定期安全扫描（OWASP Top10）</div>
+        <div>代码安全审计 + 依赖漏洞扫描</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 8. DEPLOYMENT ========== -->
+<section id="deploy" class="section">
+  <div class="fade-in">
+    <div class="section-title">部署架构</div>
+    <p class="section-sub">Deployment Topology — 阿里云生产环境部署方案</p>
+  </div>
+
+  <!-- Deployment Diagram -->
+  <div class="glass p-6 md:p-8 mb-6 fade-in">
+    <div class="grid md:grid-cols-3 gap-6">
+
+      <!-- Production -->
+      <div class="glass-sm p-5" style="border-color: rgba(16,185,129,0.3);">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-3 h-3 rounded-full bg-green-500"></div>
+          <span class="font-bold text-green-300 text-sm">Production 生产环境</span>
+        </div>
+        <div class="space-y-2 text-xs text-slate-400">
+          <div class="p-2 rounded-lg" style="background:rgba(16,185,129,0.06);">
+            <span class="text-green-400 font-semibold">K8s集群</span><br>
+            3 Master + 6 Worker (ECS)<br>
+            <span class="mono text-slate-500">8C32G / node</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(245,158,11,0.06);">
+            <span class="text-yellow-400 font-semibold">数据库</span><br>
+            RDS PostgreSQL 高可用版<br>
+            <span class="mono text-slate-500">主从复制，自动故障切换</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(239,68,68,0.06);">
+            <span class="text-red-400 font-semibold">缓存</span><br>
+            Redis 集群版 (3主3从)<br>
+            <span class="mono text-slate-500">ElastiCache 64GB</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(139,92,246,0.06);">
+            <span class="text-purple-400 font-semibold">AI推理</span><br>
+            GPU节点 (A10G x2)<br>
+            <span class="mono text-slate-500">Embedding + 模型推理</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Staging -->
+      <div class="glass-sm p-5" style="border-color: rgba(245,158,11,0.3);">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <span class="font-bold text-yellow-300 text-sm">Staging 预发布环境</span>
+        </div>
+        <div class="space-y-2 text-xs text-slate-400">
+          <div class="p-2 rounded-lg" style="background:rgba(245,158,11,0.06);">
+            <span class="text-yellow-400 font-semibold">K8s集群</span><br>
+            单节点 (MiniKube / K3s)<br>
+            <span class="mono text-slate-500">16C64G ECS</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(245,158,11,0.06);">
+            <span class="text-yellow-400 font-semibold">数据库</span><br>
+            RDS PostgreSQL 基础版<br>
+            <span class="mono text-slate-500">生产数据脱敏副本</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(245,158,11,0.06);">
+            <span class="text-yellow-400 font-semibold">用途</span><br>
+            预发布验证、集成测试<br>
+            <span class="mono text-slate-500">与生产环境配置对齐</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CDN & Edge -->
+      <div class="glass-sm p-5" style="border-color: rgba(59,130,246,0.3);">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span class="font-bold text-blue-300 text-sm">CDN & 边缘服务</span>
+        </div>
+        <div class="space-y-2 text-xs text-slate-400">
+          <div class="p-2 rounded-lg" style="background:rgba(59,130,246,0.06);">
+            <span class="text-blue-400 font-semibold">阿里云CDN</span><br>
+            静态资源加速分发<br>
+            <span class="mono text-slate-500">全国节点覆盖</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(59,130,246,0.06);">
+            <span class="text-blue-400 font-semibold">SLB负载均衡</span><br>
+            Layer 7 负载均衡<br>
+            <span class="mono text-slate-500">SSL终止 + 健康检查</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(59,130,246,0.06);">
+            <span class="text-blue-400 font-semibold">WAF防火墙</span><br>
+            Web应用防火墙<br>
+            <span class="mono text-slate-500">SQL注入/XSS防护</span>
+          </div>
+          <div class="p-2 rounded-lg" style="background:rgba(59,130,246,0.06);">
+            <span class="text-blue-400 font-semibold">DDoS防护</span><br>
+            阿里云DDoS高防<br>
+            <span class="mono text-slate-500">T级别清洗能力</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-scaling -->
+  <div class="glass p-6 fade-in">
+    <h3 class="text-base font-bold text-cyan-300 mb-4">弹性伸缩策略 Auto-Scaling Policies</h3>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="glass-sm p-4">
+        <div class="text-sm font-semibold text-slate-200 mb-2">HPA (Horizontal Pod Autoscaler)</div>
+        <div class="text-xs text-slate-400 space-y-1 mono">
+          <div>CPU &gt; 70% &rarr; 扩容 (max 20 replicas)</div>
+          <div>CPU &lt; 30% &rarr; 缩容 (min 2 replicas)</div>
+          <div>QPS &gt; 1000/pod &rarr; 触发扩容</div>
+          <div>Memory &gt; 80% &rarr; 告警 + 扩容</div>
+        </div>
+      </div>
+      <div class="glass-sm p-4">
+        <div class="text-sm font-semibold text-slate-200 mb-2">关键SLA指标</div>
+        <div class="text-xs text-slate-400 space-y-1 mono">
+          <div>API P99 延迟 &lt; 200ms</div>
+          <div>可用性 &gt; 99.95%</div>
+          <div>RTO &lt; 5min / RPO &lt; 1min</div>
+          <div>数据库自动备份: 每6小时 + binlog</div>
+        </div>
+      </div>
+      <div class="glass-sm p-4">
+        <div class="text-sm font-semibold text-slate-200 mb-2">CI/CD Pipeline</div>
+        <div class="text-xs text-slate-400 space-y-1">
+          <div>1. Push to <span class="mono text-blue-400">main</span> &rarr; 触发 GitHub Actions</div>
+          <div>2. 单元测试 + 集成测试 + Lint</div>
+          <div>3. Docker Build &rarr; 推送到 ACR 镜像仓库</div>
+          <div>4. Staging 自动部署 &rarr; 人工验证</div>
+          <div>5. 审批后 &rarr; Production 滚动更新</div>
+        </div>
+      </div>
+      <div class="glass-sm p-4">
+        <div class="text-sm font-semibold text-slate-200 mb-2">监控告警</div>
+        <div class="text-xs text-slate-400 space-y-1">
+          <div><span class="mono text-green-400">Prometheus</span> 采集所有服务指标</div>
+          <div><span class="mono text-orange-400">Grafana</span> 可视化Dashboard</div>
+          <div><span class="mono text-purple-400">ELK</span> 集中式日志分析</div>
+          <div>告警渠道: 钉钉/企微/短信/邮件</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="section text-center py-12">
+  <div class="text-slate-600 text-sm">
+    <div class="mono mb-2">AI接单平台 · 技术架构设计文档 v1.0</div>
+    <div>2026年3月 &middot; 机密文件 · 仅供内部技术评审使用</div>
+  </div>
+</footer>
+
+</div><!-- end lg:ml-56 -->
+
+<script>
+// ========== SERVICE DETAIL DATA ==========
+const detailData = {
+  'web': {
+    title: 'Web端',
+    tech: 'React / Next.js 14',
+    desc: '基于Next.js 14构建的Web前端，采用App Router + Server Components架构。使用TailwindCSS + Shadcn/UI组件库，TypeScript全覆盖。',
+    features: ['SSR/SSG混合渲染，首屏性能优异', 'React Server Components减少客户端JS体积', 'ISR增量静态再生成，SEO友好', 'i18n国际化支持（预留）', 'PWA离线缓存能力']
+  },
+  'mobile': {
+    title: '移动端',
+    tech: 'React Native',
+    desc: '使用React Native构建iOS和Android原生应用，复用前端团队TypeScript/React能力栈。',
+    features: ['跨平台一套代码', '原生性能体验', '热更新能力（CodePush）', '推送通知集成', '生物识别认证']
+  },
+  'wechat': {
+    title: '微信小程序',
+    tech: 'Taro 3.x',
+    desc: '使用Taro框架开发微信小程序，最大化复用React组件逻辑，深度对接微信生态。',
+    features: ['微信登录/支付原生集成', '订阅消息推送', '小程序分享裂变', '复用React组件代码', '支持H5/支付宝小程序多端编译']
+  },
+  'gateway': {
+    title: 'API Gateway',
+    tech: 'Nginx + Kong',
+    desc: 'Nginx作为反向代理入口，Kong作为API网关统一管理所有微服务路由、鉴权和流量控制。',
+    features: ['JWT Token验证插件', 'Rate Limiting限流', '请求/响应日志记录', '服务发现与负载均衡', 'API版本管理', 'CORS / IP白名单']
+  },
+  'user-svc': {
+    title: '用户服务',
+    tech: 'Go (Gin)',
+    desc: '负责用户注册、登录、Profile管理、实名认证等。核心鉴权服务，JWT Token签发。',
+    features: ['手机号+验证码登录', '微信OAuth2.0登录', 'JWT Token签发与刷新', '用户画像管理', '服务者技能认证体系']
+  },
+  'demand-svc': {
+    title: '需求服务',
+    tech: 'Go (Gin) + AI Parse',
+    desc: '管理客户发布的需求，支持AI智能解析需求文本，提取结构化信息（类别、技能要求、预算等）。',
+    features: ['需求CRUD管理', 'AI自然语言解析', '需求模板库', '需求状态机管理', '草稿自动保存']
+  },
+  'order-svc': {
+    title: '订单服务',
+    tech: 'Go (Gin)',
+    desc: '订单全生命周期管理，从创建到完成的状态机流转，里程碑跟踪，超时处理。',
+    features: ['订单状态机（7种状态流转）', '里程碑分阶段管理', '超时自动处理', '订单时间线记录', '退款/取消流程']
+  },
+  'match-svc': {
+    title: '匹配服务',
+    tech: 'Python (FastAPI) + ML',
+    desc: '基于AI的智能匹配引擎，综合考虑技能匹配度、历史评价、响应速度、价格区间等多维度推荐服务者。',
+    features: ['多维度加权评分算法', '向量语义匹配（Milvus）', '协同过滤推荐', '实时在线状态感知', 'A/B测试框架']
+  },
+  'agent-svc': {
+    title: 'Agent定制服务',
+    tech: 'Python (FastAPI) + LangChain',
+    desc: '核心AI Agent构建服务，支持可视化Agent配置、Prompt工程、工具集成、RAG知识库、自动化测试。',
+    features: ['可视化Agent Builder', 'Prompt模板管理', '工具链集成（API/DB/文件）', 'RAG知识库构建', 'Agent自动化测试', '一键部署为API端点']
+  },
+  'pay-svc': {
+    title: '支付服务',
+    tech: 'Go (Gin)',
+    desc: '对接微信支付、支付宝等支付渠道，管理资金托管、分账、退款等财务流程。',
+    features: ['微信支付/支付宝对接', '资金托管（担保交易）', '自动分账（平台抽成）', '退款流程管理', '对账系统']
+  },
+  'msg-svc': {
+    title: '消息服务',
+    tech: 'Go + WebSocket',
+    desc: '实时消息通信服务，支持订单内即时聊天、系统通知、文件传输。',
+    features: ['WebSocket实时通信', '消息持久化（MongoDB）', '文件消息支持', '系统通知推送', '消息已读状态']
+  },
+  'ai-toolbox': {
+    title: 'AI工具箱服务',
+    tech: 'Python (FastAPI)',
+    desc: '提供通用AI能力接口：文本生成、图像处理、数据分析、代码生成等，供其他服务调用。',
+    features: ['多模型统一调用接口', '文本摘要/改写/翻译', '图像生成/编辑', '数据分析报告生成', '代码生成/Review']
+  },
+  'qc-svc': {
+    title: '质检服务',
+    tech: 'Python (FastAPI) + AI',
+    desc: 'AI驱动的交付物自动质检，检查Agent功能完整性、响应质量、安全合规等维度。',
+    features: ['自动化功能测试', '响应质量评分', '安全漏洞扫描', '性能基准测试', '生成质检报告']
+  },
+  'review-svc': {
+    title: '评价服务',
+    tech: 'Go (Gin)',
+    desc: '双向评价系统，支持多维度打分、标签、文字评价，驱动服务者信用体系。',
+    features: ['多维度评分（质量/沟通/速度）', '标签化评价', '评价审核（AI+人工）', '信用分计算', '评价统计分析']
+  },
+  'llm': {
+    title: 'LLM调用层',
+    tech: '通义千问 + Claude API',
+    desc: '统一LLM调用网关，根据任务类型智能路由到不同模型。国内场景优先通义千问（合规+低延迟），复杂推理用Claude。',
+    features: ['模型路由策略', 'Token用量监控', '请求队列与限流', 'Fallback降级策略', '响应缓存（相同Query）', '成本核算']
+  }
+};
+
+// ========== DETAIL PANEL ==========
+function showDetail(key) {
+  const data = detailData[key];
+  if (!data) return;
+  const panel = document.getElementById('detailPanel');
+  const overlay = document.getElementById('detailOverlay');
+  const content = document.getElementById('detailContent');
+
+  // Mark active
+  document.querySelectorAll('.arch-box').forEach(b => b.classList.remove('active'));
+  const activeBox = document.querySelector(`[data-detail="${key}"]`);
+  if (activeBox) activeBox.classList.add('active');
+
+  content.innerHTML = `
+    <div class="mb-6">
+      <div class="text-xs text-slate-500 mono mb-1">${data.tech}</div>
+      <div class="text-xl font-bold text-slate-100">${data.title}</div>
+    </div>
+    <p class="text-sm text-slate-400 mb-6 leading-relaxed">${data.desc}</p>
+    <div class="text-xs font-semibold text-slate-300 mb-3">核心能力</div>
+    <div class="space-y-2">
+      ${data.features.map(f => `<div class="flex gap-2 items-start text-sm text-slate-400"><span class="text-green-400 mt-0.5">&#x25B8;</span><span>${f}</span></div>`).join('')}
+    </div>
+  `;
+
+  panel.classList.add('open');
+  overlay.classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('detailOverlay').classList.remove('open');
+  document.querySelectorAll('.arch-box').forEach(b => b.classList.remove('active'));
+}
+
+// ========== GSAP SCROLL ANIMATIONS ==========
+gsap.registerPlugin(ScrollTrigger);
+
+// Animate all .fade-in elements
+gsap.utils.toArray('.fade-in').forEach(el => {
+  gsap.to(el, {
+    opacity: 1,
+    y: 0,
+    duration: 0.8,
+    ease: 'power2.out',
+    scrollTrigger: {
+      trigger: el,
+      start: 'top 85%',
+      toggleActions: 'play none none none'
+    }
+  });
+});
+
+// Nav active state
+const sections = document.querySelectorAll('section[id]');
+const navItems = document.querySelectorAll('.nav-item');
+
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(section => {
+    const sectionTop = section.offsetTop - 200;
+    if (window.scrollY >= sectionTop) {
+      current = section.getAttribute('id');
+    }
+  });
+  navItems.forEach(item => {
+    item.classList.remove('active');
+    if (item.getAttribute('href') === '#' + current) {
+      item.classList.add('active');
+    }
+  });
+});
+
+// Smooth scroll for nav
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function (e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+
+// Keyboard shortcut to close detail
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+</script>
+
+</body>
+</html>

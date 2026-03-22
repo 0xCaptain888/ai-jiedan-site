@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI接单平台 — 商业分析报告</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'Noto Sans SC', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+        display: ['Inter', 'Noto Sans SC', 'sans-serif'],
+      },
+      colors: {
+        brand: { 50:'#eef5ff', 100:'#d9e8ff', 200:'#bcd5ff', 300:'#8ebbff', 400:'#5996ff', 500:'#336dff', 600:'#1a4ff5', 700:'#133de1', 800:'#1633b6', 900:'#18308f', 950:'#111d57' },
+        surface: { 50:'#f8fafc', 100:'#f1f5f9', 200:'#e2e8f0', 300:'#cbd5e1', 400:'#94a3b8', 500:'#64748b', 600:'#475569', 700:'#334155', 800:'#1e293b', 900:'#0f172a', 950:'#020617' },
+      }
+    }
+  }
+}
+</script>
+<style>
+/* --- Base --- */
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { font-family:'Inter','Noto Sans SC',sans-serif; background:#080c18; color:#e2e8f0; overflow-x:hidden; }
+
+/* --- Mesh Gradient Background --- */
+.mesh-bg {
+  position:fixed; inset:0; z-index:-2;
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 20%, rgba(51,109,255,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, rgba(139,92,246,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(6,182,212,0.04) 0%, transparent 60%),
+    linear-gradient(180deg, #080c18 0%, #0c1225 50%, #080c18 100%);
+}
+
+/* --- Grain Overlay --- */
+.grain {
+  position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --- Progress Bar --- */
+#progress { position:fixed; top:0; left:0; height:2px; background:linear-gradient(90deg,#336dff,#8b5cf6,#06b6d4); z-index:9999; width:0%; transition:width 0.1s; }
+
+/* --- Glass Cards --- */
+.glass {
+  background: rgba(15,23,42,0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+}
+.glass-bright {
+  background: rgba(30,41,59,0.5);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+}
+
+/* --- Section Titles --- */
+.section-tag {
+  font-family:'JetBrains Mono',monospace;
+  font-size:0.7rem;
+  letter-spacing:0.15em;
+  text-transform:uppercase;
+  color:#5996ff;
+  padding:4px 12px;
+  border:1px solid rgba(89,150,255,0.3);
+  border-radius:20px;
+  display:inline-block;
+}
+
+/* --- Hero --- */
+.hero-title {
+  font-size:clamp(2.4rem,6vw,4.8rem);
+  font-weight:900;
+  line-height:1.1;
+  letter-spacing:-0.03em;
+  background:linear-gradient(135deg,#fff 0%,#cbd5e1 40%,#5996ff 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero-sub {
+  font-size:clamp(1rem,2vw,1.35rem);
+  color:#94a3b8;
+  font-weight:300;
+  line-height:1.7;
+  max-width:680px;
+}
+
+/* --- Metric Cards --- */
+.metric-card {
+  background:linear-gradient(135deg, rgba(51,109,255,0.08), rgba(139,92,246,0.05));
+  border:1px solid rgba(89,150,255,0.12);
+  border-radius:16px;
+  padding:28px 24px;
+  text-align:center;
+  transition:transform 0.3s, border-color 0.3s;
+}
+.metric-card:hover { transform:translateY(-4px); border-color:rgba(89,150,255,0.3); }
+.metric-num { font-size:2.2rem; font-weight:800; background:linear-gradient(135deg,#5996ff,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.metric-label { font-size:0.82rem; color:#94a3b8; margin-top:6px; }
+
+/* --- Table --- */
+.comp-table { width:100%; border-collapse:separate; border-spacing:0; }
+.comp-table th { background:rgba(51,109,255,0.1); color:#8ebbff; font-weight:600; font-size:0.78rem; letter-spacing:0.05em; text-transform:uppercase; padding:14px 16px; text-align:left; }
+.comp-table th:first-child { border-radius:12px 0 0 0; }
+.comp-table th:last-child { border-radius:0 12px 0 0; }
+.comp-table td { padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.88rem; color:#cbd5e1; }
+.comp-table tr:last-child td { border-bottom:none; }
+.comp-table tr:last-child td:first-child { border-radius:0 0 0 12px; }
+.comp-table tr:last-child td:last-child { border-radius:0 0 12px 0; }
+.comp-table tbody tr { transition:background 0.2s; }
+.comp-table tbody tr:hover { background:rgba(51,109,255,0.04); }
+
+.tag-yes { display:inline-block; padding:2px 10px; border-radius:10px; font-size:0.75rem; font-weight:500; background:rgba(34,197,94,0.12); color:#4ade80; }
+.tag-no { display:inline-block; padding:2px 10px; border-radius:10px; font-size:0.75rem; font-weight:500; background:rgba(239,68,68,0.1); color:#f87171; }
+.tag-partial { display:inline-block; padding:2px 10px; border-radius:10px; font-size:0.75rem; font-weight:500; background:rgba(251,191,36,0.1); color:#fbbf24; }
+
+/* --- Feature Cards --- */
+.feat-card {
+  background:linear-gradient(145deg, rgba(15,23,42,0.7), rgba(30,41,59,0.3));
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:16px;
+  padding:32px 28px;
+  transition:transform 0.3s, border-color 0.3s;
+}
+.feat-card:hover { transform:translateY(-3px); border-color:rgba(89,150,255,0.2); }
+.feat-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; margin-bottom:16px; }
+
+/* --- Timeline --- */
+.tl-item { position:relative; padding-left:36px; padding-bottom:36px; }
+.tl-item::before { content:''; position:absolute; left:7px; top:8px; bottom:0; width:2px; background:linear-gradient(180deg,#336dff,rgba(51,109,255,0.1)); }
+.tl-item:last-child::before { display:none; }
+.tl-dot { position:absolute; left:0; top:4px; width:16px; height:16px; border-radius:50%; background:#336dff; border:3px solid #080c18; box-shadow:0 0 12px rgba(51,109,255,0.4); }
+
+/* --- Risk Cards --- */
+.risk-card { border-left:3px solid; padding:20px 24px; border-radius:0 12px 12px 0; background:rgba(15,23,42,0.5); }
+
+/* --- Reveal animation class --- */
+.reveal { opacity:0; transform:translateY(30px); }
+
+/* --- Chart containers --- */
+.chart-box { width:100%; height:380px; }
+
+@media(max-width:768px) {
+  .chart-box { height:300px; }
+  .metric-num { font-size:1.6rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="mesh-bg"></div>
+<div class="grain"></div>
+<div id="progress"></div>
+
+<!-- ==================== HERO ==================== -->
+<section class="min-h-screen flex items-center justify-center px-6 relative">
+  <div class="max-w-4xl mx-auto text-center">
+    <div class="reveal">
+      <span class="section-tag mb-6 inline-block">商业分析报告 · 2026</span>
+    </div>
+    <h1 class="hero-title reveal mt-6">AI接单平台</h1>
+    <p class="hero-sub mx-auto reveal mt-8">
+      连接中小企业需求与AI赋能的自由职业者，<br>
+      以<strong style="color:#8ebbff">Agent定制</strong>为核心，重新定义灵活用工市场。
+    </p>
+    <div class="flex flex-wrap gap-4 justify-center mt-12 reveal">
+      <a href="#market" class="px-6 py-3 rounded-full bg-brand-600 text-white font-medium text-sm hover:bg-brand-500 transition">查看分析 ↓</a>
+      <a href="#model" class="px-6 py-3 rounded-full glass-bright text-surface-300 font-medium text-sm hover:text-white transition">商业模式</a>
+    </div>
+  </div>
+  <!-- Floating decorative orbs -->
+  <div class="absolute top-1/4 left-10 w-72 h-72 bg-brand-600/10 rounded-full blur-3xl animate-pulse"></div>
+  <div class="absolute bottom-1/4 right-10 w-56 h-56 bg-purple-600/8 rounded-full blur-3xl animate-pulse" style="animation-delay:1s"></div>
+</section>
+
+<!-- ==================== MARKET ANALYSIS ==================== -->
+<section id="market" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">01 / 市场分析</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-4 reveal" style="letter-spacing:-0.02em">灵活用工 × AI浪潮</h2>
+    <p class="text-surface-400 max-w-2xl mb-16 reveal">中国灵活用工市场持续高速增长，AI工具正在重塑自由职业的效率边界。</p>
+
+    <!-- Key Metrics -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+      <div class="metric-card reveal"><div class="metric-num">1.2万亿</div><div class="metric-label">2025年灵活用工市场规模</div></div>
+      <div class="metric-card reveal"><div class="metric-num">23.5%</div><div class="metric-label">年均复合增长率</div></div>
+      <div class="metric-card reveal"><div class="metric-num">2亿+</div><div class="metric-label">灵活就业人口</div></div>
+      <div class="metric-card reveal"><div class="metric-num">67%</div><div class="metric-label">中小企业AI工具使用意愿</div></div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid md:grid-cols-2 gap-6 mb-16">
+      <div class="glass p-6 reveal">
+        <h3 class="text-sm font-semibold text-surface-300 mb-4">灵活用工市场规模及预测（万亿元）</h3>
+        <div id="chart-market" class="chart-box"></div>
+      </div>
+      <div class="glass p-6 reveal">
+        <h3 class="text-sm font-semibold text-surface-300 mb-4">AI工具在自由职业领域渗透率</h3>
+        <div id="chart-ai-penetration" class="chart-box"></div>
+      </div>
+    </div>
+
+    <!-- User Personas -->
+    <h3 class="text-xl font-bold mb-6 reveal">目标用户画像</h3>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="glass p-8 reveal">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-brand-600/20 flex items-center justify-center text-brand-400 text-lg">📋</div>
+          <h4 class="font-bold text-lg">需求方 · 中小企业 / 个体户</h4>
+        </div>
+        <ul class="space-y-3 text-surface-400 text-sm leading-relaxed">
+          <li class="flex gap-2"><span class="text-brand-400 mt-0.5">▸</span>员工规模10-200人，无专职AI技术团队</li>
+          <li class="flex gap-2"><span class="text-brand-400 mt-0.5">▸</span>高频需求：客服Agent、营销自动化、数据分析、内容生产</li>
+          <li class="flex gap-2"><span class="text-brand-400 mt-0.5">▸</span>痛点：知道AI有用但不知道怎么用，试错成本高</li>
+          <li class="flex gap-2"><span class="text-brand-400 mt-0.5">▸</span>预算：单次服务 500-50,000 元</li>
+          <li class="flex gap-2"><span class="text-brand-400 mt-0.5">▸</span>决策者：创始人 / 运营负责人 / IT主管</li>
+        </ul>
+      </div>
+      <div class="glass p-8 reveal">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-purple-600/20 flex items-center justify-center text-purple-400 text-lg">🧑‍💻</div>
+          <h4 class="font-bold text-lg">供给方 · AI技能自由职业者</h4>
+        </div>
+        <ul class="space-y-3 text-surface-400 text-sm leading-relaxed">
+          <li class="flex gap-2"><span class="text-purple-400 mt-0.5">▸</span>熟练使用AI工具（GPT/Claude/Midjourney/Comfy等）</li>
+          <li class="flex gap-2"><span class="text-purple-400 mt-0.5">▸</span>技能背景：开发、设计、运营、数据分析、产品经理</li>
+          <li class="flex gap-2"><span class="text-purple-400 mt-0.5">▸</span>痛点：获客渠道有限，缺少标准化交付流程</li>
+          <li class="flex gap-2"><span class="text-purple-400 mt-0.5">▸</span>期望收入：月均 8,000-50,000 元</li>
+          <li class="flex gap-2"><span class="text-purple-400 mt-0.5">▸</span>年龄分布：22-40岁为主，副业或全职自由职业</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== COMPETITIVE ANALYSIS ==================== -->
+<section id="compete" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">02 / 竞品分析</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-4 reveal">市场空白：无人占领AI接单赛道</h2>
+    <p class="text-surface-400 max-w-2xl mb-16 reveal">现有平台均未将AI能力作为核心定位，存在明确的差异化窗口期。</p>
+
+    <div class="glass p-2 md:p-6 overflow-x-auto mb-12 reveal">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th>猪八戒网</th>
+            <th>一品威客</th>
+            <th>Fiverr</th>
+            <th>Upwork</th>
+            <th style="color:#5996ff">我们的平台</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="font-medium text-surface-200">AI原生定位</td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-partial">部分品类</span></td>
+            <td><span class="tag-partial">部分品类</span></td>
+            <td><span class="tag-yes">核心定位</span></td>
+          </tr>
+          <tr>
+            <td class="font-medium text-surface-200">Agent定制服务</td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-partial">零散</span></td>
+            <td><span class="tag-yes">核心业务</span></td>
+          </tr>
+          <tr>
+            <td class="font-medium text-surface-200">内置AI工具链</td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-yes">完整工具箱</span></td>
+          </tr>
+          <tr>
+            <td class="font-medium text-surface-200">智能需求匹配</td>
+            <td><span class="tag-partial">关键词</span></td>
+            <td><span class="tag-partial">关键词</span></td>
+            <td><span class="tag-yes">算法推荐</span></td>
+            <td><span class="tag-yes">算法推荐</span></td>
+            <td><span class="tag-yes">AI语义匹配</span></td>
+          </tr>
+          <tr>
+            <td class="font-medium text-surface-200">交付质检</td>
+            <td><span class="tag-partial">人工</span></td>
+            <td><span class="tag-partial">人工</span></td>
+            <td><span class="tag-partial">人工</span></td>
+            <td><span class="tag-no">无</span></td>
+            <td><span class="tag-yes">AI自动质检</span></td>
+          </tr>
+          <tr>
+            <td class="font-medium text-surface-200">目标市场</td>
+            <td>国内</td>
+            <td>国内</td>
+            <td>全球</td>
+            <td>全球</td>
+            <td>国内</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-surface-200">平均客单价</td>
+            <td>¥200-5K</td>
+            <td>¥100-3K</td>
+            <td>$5-500</td>
+            <td>$15-200/h</td>
+            <td>¥500-50K</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="glass p-6 reveal">
+      <h3 class="text-sm font-semibold text-surface-300 mb-4">竞品市场定位象限图</h3>
+      <div id="chart-compete" class="chart-box"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== VALUE PROPOSITION ==================== -->
+<section id="value" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">03 / 核心价值主张</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-16 reveal">三方共赢的价值飞轮</h2>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="glass p-8 reveal" style="border-top:2px solid #336dff">
+        <div class="text-3xl mb-4">🏢</div>
+        <h4 class="font-bold text-lg mb-3 text-brand-300">对需求方</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">低成本获取AI增强的专业服务</p>
+        <ul class="space-y-2 text-sm text-surface-400">
+          <li>▸ 交付速度提升 <strong class="text-surface-200">3-5倍</strong></li>
+          <li>▸ 服务成本降低 <strong class="text-surface-200">40-60%</strong></li>
+          <li>▸ 一句话描述需求，AI自动匹配最佳服务者</li>
+          <li>▸ Agent定制后可持续降本增效</li>
+        </ul>
+      </div>
+      <div class="glass p-8 reveal" style="border-top:2px solid #8b5cf6">
+        <div class="text-3xl mb-4">🧑‍💻</div>
+        <h4 class="font-bold text-lg mb-3 text-purple-300">对供给方</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">AI工具赋能，提升接单效率和收入</p>
+        <ul class="space-y-2 text-sm text-surface-400">
+          <li>▸ 平台内置AI工具箱，<strong class="text-surface-200">零额外成本</strong></li>
+          <li>▸ 单人可承接 <strong class="text-surface-200">3-5倍</strong> 传统工作量</li>
+          <li>▸ 标准化交付模板降低沟通成本</li>
+          <li>▸ AI辅助报价 + 智能项目管理</li>
+        </ul>
+      </div>
+      <div class="glass p-8 reveal" style="border-top:2px solid #06b6d4">
+        <div class="text-3xl mb-4">⚡</div>
+        <h4 class="font-bold text-lg mb-3 text-cyan-300">对平台</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">AI驱动的高效率交易引擎</p>
+        <ul class="space-y-2 text-sm text-surface-400">
+          <li>▸ AI语义匹配，需求-服务者精准对接</li>
+          <li>▸ AI质检自动化，降低纠纷率 <strong class="text-surface-200">70%</strong></li>
+          <li>▸ 数据飞轮：交易越多 → 匹配越准 → 转化越高</li>
+          <li>▸ 高度可规模化的轻资产模式</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Value flywheel chart -->
+    <div class="glass p-6 mt-12 reveal">
+      <h3 class="text-sm font-semibold text-surface-300 mb-4">效率对比：传统外包 vs AI接单平台</h3>
+      <div id="chart-efficiency" class="chart-box"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== BUSINESS MODEL ==================== -->
+<section id="model" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">04 / 商业模式</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-4 reveal">多元收入 × 高毛利</h2>
+    <p class="text-surface-400 max-w-2xl mb-16 reveal">佣金为基础，会员订阅做增长，AI工具增值服务提毛利。</p>
+
+    <div class="grid md:grid-cols-2 gap-6 mb-12">
+      <!-- Revenue streams chart -->
+      <div class="glass p-6 reveal">
+        <h3 class="text-sm font-semibold text-surface-300 mb-4">收入结构预测（成熟期）</h3>
+        <div id="chart-revenue" class="chart-box"></div>
+      </div>
+      <!-- Pricing -->
+      <div class="glass p-8 reveal">
+        <h3 class="font-bold text-lg mb-6">定价策略</h3>
+        <div class="space-y-5">
+          <div class="glass-bright p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-brand-300">交易佣金</span>
+              <span class="font-mono text-sm text-surface-400">10-15%</span>
+            </div>
+            <p class="text-xs text-surface-500">需求方支付，按成交金额抽佣，Agent定制类15%，标准服务10%</p>
+          </div>
+          <div class="glass-bright p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-purple-300">接单者会员</span>
+              <span class="font-mono text-sm text-surface-400">¥99-499/月</span>
+            </div>
+            <p class="text-xs text-surface-500">解锁高级AI工具、优先推荐、数据报表、免费模板库</p>
+          </div>
+          <div class="glass-bright p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-cyan-300">企业会员</span>
+              <span class="font-mono text-sm text-surface-400">¥999-4999/月</span>
+            </div>
+            <p class="text-xs text-surface-500">专属顾问、批量下单折扣、API接口、Agent托管运维</p>
+          </div>
+          <div class="glass-bright p-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="font-semibold text-emerald-300">AI工具增值</span>
+              <span class="font-mono text-sm text-surface-400">按量计费</span>
+            </div>
+            <p class="text-xs text-surface-500">高级模型调用、私有化部署、自定义训练、Token包</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="glass p-8 reveal">
+      <h3 class="font-bold text-lg mb-6">关键业务指标</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="text-center">
+          <div class="text-xs text-surface-500 font-mono uppercase tracking-wider mb-2">GMV 目标 (Y1)</div>
+          <div class="text-2xl font-bold text-brand-400">2000万</div>
+        </div>
+        <div class="text-center">
+          <div class="text-xs text-surface-500 font-mono uppercase tracking-wider mb-2">Take Rate</div>
+          <div class="text-2xl font-bold text-purple-400">12-18%</div>
+        </div>
+        <div class="text-center">
+          <div class="text-xs text-surface-500 font-mono uppercase tracking-wider mb-2">客户复购率</div>
+          <div class="text-2xl font-bold text-cyan-400">≥ 45%</div>
+        </div>
+        <div class="text-center">
+          <div class="text-xs text-surface-500 font-mono uppercase tracking-wider mb-2">毛利率目标</div>
+          <div class="text-2xl font-bold text-emerald-400">65-75%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CORE FEATURES ==================== -->
+<section id="features" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">05 / 产品核心功能</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-16 reveal">四大引擎驱动交易</h2>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(51,109,255,0.12)">🎯</div>
+        <h4 class="font-bold text-lg mb-3">需求智能匹配</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">用户用自然语言描述需求，AI自动解析需求类型、复杂度、预算范围，匹配最合适的接单者。</p>
+        <div class="space-y-2 text-xs text-surface-500">
+          <div class="flex gap-2"><span class="text-brand-400">→</span>NLP意图识别 + 多维标签匹配</div>
+          <div class="flex gap-2"><span class="text-brand-400">→</span>接单者能力画像 + 历史交付数据</div>
+          <div class="flex gap-2"><span class="text-brand-400">→</span>智能推荐 Top 3-5 候选服务者</div>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(139,92,246,0.12)">🤖</div>
+        <h4 class="font-bold text-lg mb-3">Agent 定制服务流程</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">平台核心差异化。客户提出业务场景，接单者借助平台工具快速构建、测试、部署定制Agent。</p>
+        <div class="space-y-2 text-xs text-surface-500">
+          <div class="flex gap-2"><span class="text-purple-400">→</span>可视化Agent搭建器（低代码）</div>
+          <div class="flex gap-2"><span class="text-purple-400">→</span>预置行业模板：客服 / 营销 / 数据 / 办公</div>
+          <div class="flex gap-2"><span class="text-purple-400">→</span>沙箱测试环境 + 一键部署</div>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(6,182,212,0.12)">✅</div>
+        <h4 class="font-bold text-lg mb-3">在线交付与 AI 质检</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">内置在线交付系统，AI自动检测交付质量，减少来回修改，降低纠纷。</p>
+        <div class="space-y-2 text-xs text-surface-500">
+          <div class="flex gap-2"><span class="text-cyan-400">→</span>设计类：AI审查排版/配色/分辨率</div>
+          <div class="flex gap-2"><span class="text-cyan-400">→</span>文本类：AI检查语法/原创度/SEO</div>
+          <div class="flex gap-2"><span class="text-cyan-400">→</span>代码类：自动化测试 + 安全扫描</div>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(34,197,94,0.12)">🧰</div>
+        <h4 class="font-bold text-lg mb-3">接单者 AI 工具箱</h4>
+        <p class="text-sm text-surface-400 leading-relaxed mb-4">平台内置一站式AI工具链，接单者无需额外购买各类AI工具订阅。</p>
+        <div class="space-y-2 text-xs text-surface-500">
+          <div class="flex gap-2"><span class="text-emerald-400">→</span>文本生成 / 图像生成 / 代码辅助</div>
+          <div class="flex gap-2"><span class="text-emerald-400">→</span>数据分析工具 / 自动化脚本引擎</div>
+          <div class="flex gap-2"><span class="text-emerald-400">→</span>项目管理 + 客户沟通助手</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MVP PLAN ==================== -->
+<section id="mvp" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">06 / MVP 规划</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-4 reveal">三阶段推进路径</h2>
+    <p class="text-surface-400 max-w-2xl mb-16 reveal">先跑通核心交易闭环，再扩品类做规模，最后构建AI生态壁垒。</p>
+
+    <div class="grid md:grid-cols-2 gap-12">
+      <!-- Timeline -->
+      <div class="reveal">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="glass-bright p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="font-mono text-xs text-brand-400">P1 · 0-3个月</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-brand-600/20 text-brand-300">MVP</span>
+            </div>
+            <h4 class="font-bold mb-2">跑通交易闭环</h4>
+            <ul class="text-sm text-surface-400 space-y-1">
+              <li>▸ 需求发布 → AI匹配 → 接单 → 交付 → 评价</li>
+              <li>▸ 聚焦3个高频品类：Agent定制、PPT/文档、文案翻译</li>
+              <li>▸ 基础版AI工具箱（文本+代码）</li>
+              <li>▸ 邀请制，种子用户 200-500人</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#8b5cf6;box-shadow:0 0 12px rgba(139,92,246,0.4)"></div>
+          <div class="glass-bright p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="font-mono text-xs text-purple-400">P2 · 3-9个月</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-purple-600/20 text-purple-300">增长</span>
+            </div>
+            <h4 class="font-bold mb-2">扩品类 · 做规模</h4>
+            <ul class="text-sm text-surface-400 space-y-1">
+              <li>▸ 扩展至设计、开发、数据分析全品类</li>
+              <li>▸ 上线会员体系 + AI工具增值付费</li>
+              <li>▸ Agent模板市场（接单者可上架复用）</li>
+              <li>▸ 目标：月GMV 100万，活跃接单者 500+</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot" style="background:#06b6d4;box-shadow:0 0 12px rgba(6,182,212,0.4)"></div>
+          <div class="glass-bright p-5">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="font-mono text-xs text-cyan-400">P3 · 9-18个月</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-600/20 text-cyan-300">生态</span>
+            </div>
+            <h4 class="font-bold mb-2">构建 AI 生态壁垒</h4>
+            <ul class="text-sm text-surface-400 space-y-1">
+              <li>▸ 开放API，企业可集成平台Agent能力</li>
+              <li>▸ Agent marketplace：标准化Agent产品化销售</li>
+              <li>▸ 行业解决方案包（电商、教育、金融等）</li>
+              <li>▸ 目标：月GMV 1000万，盈亏平衡</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cold start & milestones -->
+      <div class="space-y-6 reveal">
+        <div class="glass p-6">
+          <h3 class="font-bold text-lg mb-4">🚀 冷启动策略</h3>
+          <div class="space-y-4 text-sm text-surface-400">
+            <div class="glass-bright p-4">
+              <div class="font-semibold text-surface-200 mb-1">供给侧：种子接单者招募</div>
+              <p>从AI社群（即刻、知识星球、GitHub）定向邀请100名AI高手入驻；首3个月免佣金，提供免费AI工具额度。</p>
+            </div>
+            <div class="glass-bright p-4">
+              <div class="font-semibold text-surface-200 mb-1">需求侧：企业种子用户</div>
+              <p>联合本地中小企业协会/孵化器推介；首单折扣50%；制作3个标杆案例做口碑传播。</p>
+            </div>
+            <div class="glass-bright p-4">
+              <div class="font-semibold text-surface-200 mb-1">内容营销获客</div>
+              <p>创始团队在小红书/B站/公众号输出AI接单实战内容，建立"AI自由职业"品类认知。</p>
+            </div>
+          </div>
+        </div>
+        <div class="glass p-6">
+          <h3 class="font-bold text-lg mb-4">🎯 关键里程碑</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 text-sm">
+              <span class="font-mono text-xs text-brand-400 w-16 shrink-0">M1</span>
+              <span class="text-surface-300">产品上线，完成首笔交易</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+              <span class="font-mono text-xs text-brand-400 w-16 shrink-0">M3</span>
+              <span class="text-surface-300">月GMV 10万，NPS ≥ 40</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+              <span class="font-mono text-xs text-brand-400 w-16 shrink-0">M6</span>
+              <span class="text-surface-300">月GMV 100万，复购率 ≥ 30%</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+              <span class="font-mono text-xs text-brand-400 w-16 shrink-0">M12</span>
+              <span class="text-surface-300">月GMV 500万，启动A轮融资</span>
+            </div>
+            <div class="flex items-center gap-3 text-sm">
+              <span class="font-mono text-xs text-brand-400 w-16 shrink-0">M18</span>
+              <span class="text-surface-300">月GMV 1000万，盈亏平衡</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== RISKS ==================== -->
+<section id="risks" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <span class="section-tag reveal">07 / 风险与挑战</span>
+    <h2 class="text-3xl md:text-4xl font-bold mt-4 mb-16 reveal">识别风险，提前布局</h2>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="risk-card reveal" style="border-color:#f87171">
+        <h4 class="font-bold mb-2 flex items-center gap-2"><span class="text-red-400">⚠</span>鸡生蛋问题（冷启动）</h4>
+        <p class="text-sm text-surface-400 mb-3">初期需求方和供给方都不足，平台可能陷入"没人接单→没人下单"循环。</p>
+        <div class="text-sm text-surface-300"><strong>应对：</strong>先建供给侧，邀请制招募AI高手；团队自身作为首批接单者验证流程；用标杆案例吸引需求方。</div>
+      </div>
+      <div class="risk-card reveal" style="border-color:#fbbf24">
+        <h4 class="font-bold mb-2 flex items-center gap-2"><span class="text-yellow-400">⚠</span>交付质量不可控</h4>
+        <p class="text-sm text-surface-400 mb-3">AI辅助≠高质量，接单者水平参差不齐，可能导致客户不满和信任危机。</p>
+        <div class="text-sm text-surface-300"><strong>应对：</strong>入驻审核+试单制度；AI质检前置；阶梯式信用体系；纠纷快速仲裁机制。</div>
+      </div>
+      <div class="risk-card reveal" style="border-color:#8b5cf6">
+        <h4 class="font-bold mb-2 flex items-center gap-2"><span class="text-purple-400">⚠</span>巨头入场竞争</h4>
+        <p class="text-sm text-surface-400 mb-3">钉钉/飞书/猪八戒等可能快速复制AI接单功能。</p>
+        <div class="text-sm text-surface-300"><strong>应对：</strong>速度优先，抢占AI接单品类心智；深耕Agent定制垂直赛道建立专业壁垒；沉淀服务者生态和交易数据。</div>
+      </div>
+      <div class="risk-card reveal" style="border-color:#06b6d4">
+        <h4 class="font-bold mb-2 flex items-center gap-2"><span class="text-cyan-400">⚠</span>AI政策与合规风险</h4>
+        <p class="text-sm text-surface-400 mb-3">国内AI监管趋严，Agent生成内容的合规性、数据安全等存在不确定性。</p>
+        <div class="text-sm text-surface-300"><strong>应对：</strong>内容安全审核系统；合规团队跟踪政策；采用国内合规大模型API；用户协议明确责任边界。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FOOTER ==================== -->
+<section class="py-20 px-6 text-center">
+  <div class="max-w-2xl mx-auto reveal">
+    <h2 class="text-2xl md:text-3xl font-bold mb-4" style="background:linear-gradient(135deg,#fff,#5996ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">抓住AI重塑灵活用工的窗口期</h2>
+    <p class="text-surface-400 text-sm">AI接单平台 · 商业分析报告 · 2026</p>
+  </div>
+</section>
+
+<script>
+// ==================== GSAP ScrollTrigger ====================
+gsap.registerPlugin(ScrollTrigger);
+
+// Reveal animations
+gsap.utils.toArray('.reveal').forEach(el => {
+  gsap.to(el, {
+    opacity:1, y:0, duration:0.8, ease:'power2.out',
+    scrollTrigger:{ trigger:el, start:'top 88%', toggleActions:'play none none none' }
+  });
+});
+
+// Progress bar
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+});
+
+// ==================== ECharts Theme ====================
+const fontFamily = 'Inter, Noto Sans SC, sans-serif';
+const axisStyle = { axisLine:{lineStyle:{color:'rgba(255,255,255,0.08)'}}, axisTick:{show:false}, axisLabel:{color:'#64748b',fontFamily}, splitLine:{lineStyle:{color:'rgba(255,255,255,0.04)'}} };
+const tooltipStyle = { backgroundColor:'rgba(15,23,42,0.92)', borderColor:'rgba(255,255,255,0.08)', textStyle:{color:'#e2e8f0',fontFamily,fontSize:13}, extraCssText:'backdrop-filter:blur(10px);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.3);' };
+
+function initChart(id, option) {
+  const el = document.getElementById(id);
+  if(!el) return null;
+  const chart = echarts.init(el, null, {renderer:'svg'});
+  chart.setOption(option);
+  window.addEventListener('resize', ()=>chart.resize());
+  // Animate on scroll
+  ScrollTrigger.create({
+    trigger:el, start:'top 85%',
+    onEnter:()=>{ chart.resize(); chart.setOption(option); }
+  });
+  return chart;
+}
+
+// ========= Chart 1: Market Size =========
+initChart('chart-market', {
+  tooltip:{...tooltipStyle, trigger:'axis'},
+  xAxis:{type:'category', data:['2020','2021','2022','2023','2024','2025E','2026E','2027E','2028E'], ...axisStyle},
+  yAxis:{type:'value', name:'万亿元', nameTextStyle:{color:'#64748b',fontFamily}, ...axisStyle},
+  grid:{left:60,right:30,top:40,bottom:40},
+  series:[
+    {
+      name:'市场规模',type:'bar',
+      data:[0.59, 0.72, 0.83, 0.93, 1.06, 1.2, 1.48, 1.83, 2.26],
+      itemStyle:{
+        borderRadius:[6,6,0,0],
+        color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#5996ff'},{offset:1,color:'rgba(51,109,255,0.2)'}])
+      },
+      barWidth:'45%',
+      animationDelay: idx => idx * 120
+    },
+    {
+      name:'增长率',type:'line',yAxisIndex:0,
+      data:[null, 22, 15.3, 12, 14, 13.2, 23.3, 23.6, 23.5],
+      lineStyle:{color:'#8b5cf6',width:2},
+      symbol:'circle',symbolSize:6,
+      itemStyle:{color:'#8b5cf6'},
+      label:{show:false}
+    }
+  ]
+});
+
+// ========= Chart 2: AI Penetration =========
+initChart('chart-ai-penetration', {
+  tooltip:{...tooltipStyle, trigger:'axis'},
+  xAxis:{type:'category', data:['2022','2023','2024','2025E','2026E','2027E'], ...axisStyle},
+  yAxis:{type:'value', name:'%', nameTextStyle:{color:'#64748b',fontFamily}, max:80, ...axisStyle},
+  grid:{left:50,right:30,top:40,bottom:40},
+  series:[
+    {
+      name:'设计类',type:'line',smooth:true,
+      data:[5,12,28,42,58,72],
+      lineStyle:{width:2.5,color:'#336dff'},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(51,109,255,0.15)'},{offset:1,color:'rgba(51,109,255,0)'}])},
+      symbol:'circle',symbolSize:5,itemStyle:{color:'#336dff'}
+    },
+    {
+      name:'文本内容类',type:'line',smooth:true,
+      data:[8,18,35,52,65,76],
+      lineStyle:{width:2.5,color:'#8b5cf6'},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(139,92,246,0.12)'},{offset:1,color:'rgba(139,92,246,0)'}])},
+      symbol:'circle',symbolSize:5,itemStyle:{color:'#8b5cf6'}
+    },
+    {
+      name:'技术开发类',type:'line',smooth:true,
+      data:[3,8,18,30,45,60],
+      lineStyle:{width:2.5,color:'#06b6d4'},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(6,182,212,0.1)'},{offset:1,color:'rgba(6,182,212,0)'}])},
+      symbol:'circle',symbolSize:5,itemStyle:{color:'#06b6d4'}
+    },
+    {
+      name:'Agent定制',type:'line',smooth:true,
+      data:[0,2,8,18,35,55],
+      lineStyle:{width:2.5,color:'#f59e0b',type:'dashed'},
+      symbol:'diamond',symbolSize:7,itemStyle:{color:'#f59e0b'}
+    }
+  ],
+  legend:{data:['设计类','文本内容类','技术开发类','Agent定制'],textStyle:{color:'#94a3b8',fontFamily,fontSize:11},top:5,itemGap:16}
+});
+
+// ========= Chart 3: Competitive Scatter =========
+initChart('chart-compete', {
+  tooltip:{...tooltipStyle, formatter:p=>`<strong>${p.data[2]}</strong><br/>AI能力：${p.data[0]}/10<br/>服务专业度：${p.data[1]}/10`},
+  xAxis:{name:'AI 能力集成度', nameLocation:'middle', nameGap:30, min:0, max:10, nameTextStyle:{color:'#94a3b8',fontFamily,fontSize:12}, ...axisStyle},
+  yAxis:{name:'服务专业度', nameLocation:'middle', nameGap:40, min:0, max:10, nameTextStyle:{color:'#94a3b8',fontFamily,fontSize:12}, ...axisStyle},
+  grid:{left:60,right:50,top:30,bottom:50},
+  series:[{
+    type:'scatter',symbolSize:38,
+    data:[
+      [2, 7, '猪八戒网'],
+      [1.5, 6, '一品威客'],
+      [4, 7.5, 'Fiverr'],
+      [3.5, 8, 'Upwork'],
+      [9, 8.5, '我们的平台']
+    ],
+    label:{show:true,formatter:p=>p.data[2],fontSize:10,fontFamily,color:'#e2e8f0',position:'inside'},
+    itemStyle:{
+      color: p => {
+        const colors = ['#475569','#475569','#64748b','#64748b','#336dff'];
+        return colors[p.dataIndex];
+      },
+      borderColor:'rgba(255,255,255,0.1)',borderWidth:1
+    },
+    animationDelay: idx => idx * 200
+  }],
+  markArea:{silent:true,data:[[{xAxis:6,yAxis:6,itemStyle:{color:'rgba(51,109,255,0.04)'}},{xAxis:10,yAxis:10}]]}
+});
+
+// ========= Chart 4: Efficiency Comparison =========
+initChart('chart-efficiency', {
+  tooltip:{...tooltipStyle, trigger:'axis'},
+  xAxis:{type:'category', data:['需求对接','方案确认','执行交付','修改迭代','质检验收','总周期'], ...axisStyle},
+  yAxis:{type:'value', name:'天', nameTextStyle:{color:'#64748b',fontFamily}, ...axisStyle},
+  grid:{left:50,right:30,top:40,bottom:40},
+  legend:{data:['传统外包','AI接单平台'],textStyle:{color:'#94a3b8',fontFamily,fontSize:11},top:5},
+  series:[
+    {
+      name:'传统外包',type:'bar',
+      data:[3, 2, 7, 3, 2, 17],
+      itemStyle:{color:'rgba(100,116,139,0.5)',borderRadius:[4,4,0,0]},
+      barWidth:'30%',barGap:'20%'
+    },
+    {
+      name:'AI接单平台',type:'bar',
+      data:[0.5, 0.5, 2, 0.5, 0.5, 4],
+      itemStyle:{
+        borderRadius:[4,4,0,0],
+        color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#5996ff'},{offset:1,color:'rgba(51,109,255,0.3)'}])
+      },
+      barWidth:'30%',
+      label:{show:true,position:'top',color:'#5996ff',fontFamily,fontSize:11,formatter:p=>p.value+'天'}
+    }
+  ]
+});
+
+// ========= Chart 5: Revenue Structure =========
+initChart('chart-revenue', {
+  tooltip:{...tooltipStyle},
+  legend:{textStyle:{color:'#94a3b8',fontFamily,fontSize:11},top:5,itemGap:14},
+  series:[{
+    type:'pie',radius:['42%','72%'],center:['50%','55%'],
+    avoidLabelOverlap:true,
+    itemStyle:{borderColor:'#0f172a',borderWidth:3,borderRadius:6},
+    label:{color:'#cbd5e1',fontFamily,fontSize:12,formatter:'{b}\n{d}%'},
+    labelLine:{lineStyle:{color:'rgba(255,255,255,0.15)'}},
+    data:[
+      {value:45, name:'交易佣金', itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#336dff'},{offset:1,color:'#5996ff'}])}},
+      {value:25, name:'会员订阅', itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#7c3aed'},{offset:1,color:'#8b5cf6'}])}},
+      {value:20, name:'AI工具增值', itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#0891b2'},{offset:1,color:'#06b6d4'}])}},
+      {value:10, name:'企业解决方案', itemStyle:{color:new echarts.graphic.LinearGradient(0,0,1,1,[{offset:0,color:'#059669'},{offset:1,color:'#34d399'})}}
+    ],
+    animationType:'scale',animationEasing:'elasticOut'
+  }]
+});
+</script>
+</body>
+</html>
